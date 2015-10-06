@@ -56,7 +56,7 @@ class jobshandler(threading.Thread):
         self.root              = root
         self.id                = self.generate_id()
         self.config            = config
-        self.running           = True
+        self.running           = False
         self.jobs_dir          = self.root + "/jobs/queue" 
         self.archived_jobs_dir = self.root + "/jobs/archived" 
         self.job_status        = []
@@ -469,7 +469,7 @@ class jobshandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_status(self, sender):
+    def handle_job_status(self, sender):
         """
         Handle job status request events sent by the web server. All worker
         related status details are being sent back to the web server.
@@ -483,7 +483,7 @@ class jobshandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_pause(self, sender, data):
+    def handle_job_pause(self, sender, data):
         """
         Handle job pause request events sent by the web server. The requested
         job will get paused.
@@ -500,7 +500,7 @@ class jobshandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_resume(self, sender, data):
+    def handle_job_resume(self, sender, data):
         """
         Handle job resume request events sent by the web server. The requested
         job will get resumed.
@@ -517,7 +517,7 @@ class jobshandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_delete(self, sender, data):
+    def handle_job_delete(self, sender, data):
         """
         Handle job delete request events sent by the web server. The requested
         job will get deleted.
@@ -539,22 +539,23 @@ class jobshandler(threading.Thread):
         The main method of the job handler module.
         """
 
+        self.running = True
         syslog.syslog(syslog.LOG_INFO,
                       "job handler started with ID %s" % self.id)
 
         l = threading.Thread(target=self.listener)
         l.start()
 
-        dispatcher.connect(self.__handle_job_status,
+        dispatcher.connect(self.handle_job_status,
                            signal=ev.Event.EVENT__REQ_JOBS_LIST,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.__handle_job_pause,
+        dispatcher.connect(self.handle_job_pause,
                            signal=ev.Event.EVENT__REQ_JOB_PAUSE,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.__handle_job_resume,
+        dispatcher.connect(self.handle_job_resume,
                            signal=ev.Event.EVENT__REQ_JOB_RESUME,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.__handle_job_delete,
+        dispatcher.connect(self.handle_job_delete,
                            signal=ev.Event.EVENT__REQ_JOB_DELETE,
                            sender=dispatcher.Any)
 

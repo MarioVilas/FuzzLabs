@@ -101,7 +101,7 @@ class archives_collector(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_rsp_archives_list(self, sender, data = ""):
+    def handle_rsp_archives_list(self, sender, data = ""):
         global archives_status
         archives_status = data
 
@@ -123,7 +123,7 @@ class archives_collector(threading.Thread):
 
     def run(self):
         syslog.syslog(syslog.LOG_INFO, "archives status collector started")
-        dispatcher.connect(self.__handle_rsp_archives_list,
+        dispatcher.connect(self.handle_rsp_archives_list,
                            signal=ev.Event.EVENT__RSP_ARCHIVES_LIST,
                            sender=dispatcher.Any)
         while True:
@@ -154,7 +154,7 @@ class jobs_status_collector(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_rsp_jobs_list(self, sender, data = ""):
+    def handle_rsp_jobs_list(self, sender, data = ""):
         global jobs_status
         jobs_status = data
 
@@ -176,7 +176,7 @@ class jobs_status_collector(threading.Thread):
 
     def run(self):
         syslog.syslog(syslog.LOG_INFO, "jobs status collector started")
-        dispatcher.connect(self.__handle_rsp_jobs_list,
+        dispatcher.connect(self.handle_rsp_jobs_list,
                            signal=ev.Event.EVENT__RSP_JOBS_LIST,
                            sender=dispatcher.Any)
         while True:

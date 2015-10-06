@@ -44,7 +44,7 @@ class archivehandler(threading.Thread):
         threading.Thread.__init__(self)
         self.root              = root
         self.config            = config
-        self.running           = True
+        self.running           = False
         self.jobs_dir          = self.root + "/jobs/queue" 
         self.archived_jobs_dir = self.root + "/jobs/archived" 
         self.processing        = False
@@ -118,7 +118,7 @@ class archivehandler(threading.Thread):
     # 
     # -------------------------------------------------------------------------
 
-    def __handle_archives_list(self, sender):
+    def handle_archives_list(self, sender):
         """
         Handle EVENT__REQ_ARCHIVES_LIST events sent by the web server. The 
         event is sent by the web server's archive collector in order to fetch
@@ -166,7 +166,7 @@ class archivehandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_start(self, sender, data):
+    def handle_job_start(self, sender, data):
         """
         Handle EVENT__REQ_ARCHIVES_START events sent by the web server. The
         event is sent by the web server when the user requests an arhived job
@@ -198,7 +198,7 @@ class archivehandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_restart(self, sender, data):
+    def handle_job_restart(self, sender, data):
         """  
         Handle EVENT__REQ_ARCHIVES_RESTART events sent by the web server. The
         event is sent by the web server when the user requests an arhived job
@@ -235,7 +235,7 @@ class archivehandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def __handle_job_delete(self, sender, data):
+    def handle_job_delete(self, sender, data):
         """
         Handle EVENT__REQ_ARCHIVES_DELETE events sent by the web server. The
         event is sent by the web server when the user requests an arhived job
@@ -265,19 +265,20 @@ class archivehandler(threading.Thread):
         is just listens for and handles events received from other modules.
         """
 
+        self.running = True
         syslog.syslog(syslog.LOG_INFO, "archive handler started")
 
-        dispatcher.connect(self.__handle_archives_list,
+        dispatcher.connect(self.handle_archives_list,
                            signal=ev.Event.EVENT__REQ_ARCHIVES_LIST,
                            sender=dispatcher.Any)
 
-        dispatcher.connect(self.__handle_job_start,
+        dispatcher.connect(self.handle_job_start,
                            signal=ev.Event.EVENT__REQ_ARCHIVES_START,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.__handle_job_restart,
+        dispatcher.connect(self.handle_job_restart,
                            signal=ev.Event.EVENT__REQ_ARCHIVES_RESTART,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.__handle_job_delete,
+        dispatcher.connect(self.handle_job_delete,
                            signal=ev.Event.EVENT__REQ_ARCHIVES_DELETE,
                            sender=dispatcher.Any)
 

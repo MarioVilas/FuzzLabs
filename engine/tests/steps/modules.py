@@ -27,6 +27,7 @@ def step_impl(context):
 @then('we get a list of modules')
 def step_impl(context):
     status = type(context.modules_list) == list
+    context.module_inst.unload_modules()
 
     if status:
         for module in context.modules_list:
@@ -37,7 +38,6 @@ def step_impl(context):
                 status = False
                 break
 
-    context.module_inst.unload_modules()
     assert status
 
 

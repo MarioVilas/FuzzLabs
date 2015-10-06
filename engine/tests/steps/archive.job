@@ -1,0 +1,39 @@
+{
+    "name": "Issue collection",
+    "session": {
+        "sleep_time": 0,
+        "restart_sleep_time": 0,
+        "timeout": 0.5,
+        "skip": 0
+    },
+    "target": {
+        "transport": {
+            "media": "network",
+            "protocol": "tcp"
+        },
+        "endpoint": {
+            "address": "127.0.0.1",
+            "port": 6667
+        },
+        "agent": {
+            "address": "127.0.0.1",
+            "port": 27000,
+            "command": "/home/keyman/vulnerable",
+            "conn_retry": 5,
+            "conn_retry_delay": 60
+        },
+        "conditions": {
+            "fail_connection": ["handle"],
+            "fail_receive": ["pass"],
+            "fail_send": ["handle"]
+        }
+    },
+    "request": {
+        "request_file": "network_TEST",
+        "graph":
+        [
+            {"current": "TEST"}
+        ]
+    }
+}
+
