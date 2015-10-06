@@ -161,6 +161,7 @@ class archivehandler(threading.Thread):
                         sender="ARCHIVEHANDLER",
                         data=json.dumps(report))
         self.processing = False
+        return report
 
     # -------------------------------------------------------------------------
     #
@@ -193,6 +194,8 @@ class archivehandler(threading.Thread):
             syslog.syslog(syslog.LOG_ERR,
                           "archive handler failed to start job %s (%s)" %
                           (data, str(ex)))
+            return False
+        return True
 
     # -------------------------------------------------------------------------
     #
@@ -254,6 +257,8 @@ class archivehandler(threading.Thread):
             syslog.syslog(syslog.LOG_ERR,
                           "archive handler failed to delete job %s (%s)" %
                           (data, str(ex)))
+            return False
+        return True
 
     # -------------------------------------------------------------------------
     # 
