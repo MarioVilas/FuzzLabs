@@ -219,7 +219,7 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
 
     $interval(function() {
         factory.fetch_jobs();
-    }, 2000);
+    }, 3000);
 
     return(factory);
 }]);
@@ -352,18 +352,6 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
 
     $interval(function() {
         var jobs_list = JobsService.get_jobs();
-        /*
-        if (jobs_list == null && on_error_page == false) {
-            $state.go("Status.engineError"); 
-            on_error_page = true;
-            // We give 3 minutes to the user to correct the
-            // engine settings. After, if the settings are
-            // not corrected we drop to the error page again.
-            $interval(function() { 
-                on_error_page = false;
-            }, 180000, 1);
-        }
-        */
         $scope.jobs = jobs_list;
     }, 1000);
 

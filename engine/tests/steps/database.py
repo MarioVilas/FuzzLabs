@@ -1,6 +1,7 @@
 from behave import *
 import os
 import sys
+import json
 import time
 import inspect
 
@@ -93,6 +94,44 @@ def step_impl(context):
     assert context.return_val == False
 
 @then('we receive True if issue was deleted')
+def step_impl(context):
+    assert context.return_val
+
+
+@given('we have root, config and job data')
+def step_impl(context):
+    assert os.path.isfile(ROOT_DIR + "/../../etc/engine.config")
+    context.root        = ROOT_DIR + "/../../"
+    config_file         = ROOT_DIR + "/../../etc/engine.config"
+    context.config_data = ConfigurationHandler(config_file).get()
+    context.job_data    = json.load(open(ROOT_DIR +\
+                          "/bc70501a10e1065b9d458f8aec085c9f.job", 'r'))
+    context.job_data['job_id'] = "bc70501a10e1065b9d458f8aec085c9f"
+
+@when('we save a job')
+def step_impl(context):
+    context.database   = DatabaseHandler(context.config_data, context.root)
+    context.return_val = context.database.insertJob(context.job_data)
+
+@then('we receive True if the job was saved')
+def step_impl(context):
+    assert context.return_val
+
+
+@given('we have root, config and job id')
+def step_impl(context):
+    assert os.path.isfile(ROOT_DIR + "/../../etc/engine.config")
+    context.root        = ROOT_DIR + "/../../"
+    config_file         = ROOT_DIR + "/../../etc/engine.config"
+    context.config_data = ConfigurationHandler(config_file).get()
+    context.job_id      = "bc70501a10e1065b9d458f8aec085c9f"
+
+@when('we delete a job')
+def step_impl(context):
+    context.database   = DatabaseHandler(context.config_data, context.root)
+    context.return_val = context.database.deleteJob(context.job_id)
+
+@then('we receive True if the job was deleted')
 def step_impl(context):
     assert context.return_val
 

@@ -18,6 +18,7 @@
     <script src="/resources/javascript/jquery.ui.position.js"></script>
     <script src="/resources/javascript/jquery-ui.min.js"></script>
     <script src="/resources/javascript/fuzzlabs.js"></script>
+    <script src="/resources/javascript/parser.js"></script>
     <script src="/resources/javascript/bootstrap.min.js"></script>
     <link href="/resources/stylesheet/jquery-ui.css" rel="stylesheet">
     <link href="/resources/stylesheet/bootstrap.min.css" rel="stylesheet">
@@ -50,12 +51,7 @@
           <ul class="nav navbar-nav">
             <li class="main-menu-item active" id="main_jobs"><a href="#jobs">Jobs</a></li>
             <li class="main-menu-item" id="main_issues"><a href="#issues">Issues</a></li>
-
-            <!-- REMOVING REFERENCE AS THESE ARE WORK IN PROGRESS AND THE NEXT DEV ROUND
-                 WILL NOT BE FOCUSING ON THEM AS PRIORITIES HAVE CHANGED.
             <li class="main-menu-item" id="main_parser"><a href="#parser">Parser</a></li>
-            -->
-
             <li class="main-menu-item" id="main_engines"><a href="#engines">Engines</a></li>
             <li class="main-menu-item"><a href="http://fuzzlabs.dcnws.com" target="_blank">Documentation</a></li>
           </ul>

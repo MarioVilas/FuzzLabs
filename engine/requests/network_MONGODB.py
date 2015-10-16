@@ -49,7 +49,7 @@ if s_block_start("MsgComplete"):
     if s_block_start("UPDATE", dep="opcodes", dep_value=OP_UPDATE):
         s_dword(0, endian="<", signed=False, fuzzable=True, name="op_update_reserved_int")
         s_string("dbname")
-        s_binary(".")
+        s_static(".")
         s_string("collectionname")
         s_dword(0, endian="<", signed=False, fuzzable=True, name="op_update_flags")
         if s_block_start("SELECTOR_BSON"):
@@ -74,7 +74,7 @@ if s_block_start("MsgComplete"):
     if s_block_start("INSERT", dep="opcodes", dep_value=OP_INSERT):
         s_dword(0, endian="<", signed=False, fuzzable=True, name="op_insert_flags")
         s_string("dbname")
-        s_binary(".")
+        s_static(".")
         s_string("collectionname")
         if s_block_start("INSERT_DOCUMENT"):
             s_dword(22, endian="<", signed=False, fuzzable=True)
@@ -102,7 +102,7 @@ if s_block_start("MsgComplete"):
     if s_block_start("QUERY", dep="opcodes", dep_value=OP_QUERY):
         s_dword(0, endian="<", signed=False, fuzzable=True, name="op_query_flags")
         s_string("dbname")
-        s_binary(".")
+        s_static(".")
         s_string("collectionname")
         s_dword(0, endian="<", signed=False, fuzzable=True)
         s_dword(1, endian="<", signed=False, fuzzable=True)
@@ -130,7 +130,7 @@ if s_block_start("MsgComplete"):
     if s_block_start("GET_MORE", dep="opcodes", dep_value=OP_GET_MORE):
         s_dword(0, endian="<", signed=False, fuzzable=True)
         s_string("dbname")
-        s_binary(".")
+        s_static(".")
         s_string("collectionname")
         s_dword(1, endian="<", signed=False, fuzzable=True)
         s_qword(1, endian="<", signed=False, fuzzable=True)
@@ -147,7 +147,7 @@ if s_block_start("MsgComplete"):
     if s_block_start("DELETE", dep="opcodes", dep_value=OP_DELETE):
         s_dword(0, endian="<", signed=False, fuzzable=True)
         s_string("dbname")
-        s_binary(".")
+        s_static(".")
         s_string("collectionname")
         s_dword(0, endian="<", signed=False, fuzzable=True)
         if s_block_start("DELETE_SELECTOR"):

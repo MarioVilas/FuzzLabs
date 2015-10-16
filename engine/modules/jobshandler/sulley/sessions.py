@@ -71,21 +71,13 @@ class session(pgraph.graph):
     #
     # -----------------------------------------------------------------------------------
 
-    def __init__(self, config, root_dir, job_dir, session_id, job_data):
+    def __init__(self, config, root, session_id, settings, transport, conditions):
         pgraph.graph.__init__(self)
 
         syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
 
-        self.job_data            = job_data
-
-        settings                 = self.job_data["session"]
-        transport                = self.job_data["target"]["transport"]
-        conditions               = self.job_data["target"]["conditions"]
-
         self.session_id          = session_id
-        self.directory           = job_dir
-        self.job_data            = job_data
-        self.root_dir            = root_dir
+        self.root_dir            = root
         self.config              = config
         self.database            = db.DatabaseHandler(self.config, self.root_dir)
         self.media               = transport['media'].lower()
@@ -95,14 +87,11 @@ class session(pgraph.graph):
         self.agent               = None
         self.agent_settings      = None
 
-        self.session_filename    = self.session_id + ".session"
         self.skip                = 0
         self.sleep_time          = 1.0
         self.bind                = None
         self.restart_interval    = 0
         self.timeout             = 5.0
-        self.crash_threshold     = 3
-        self.restart_sleep_time  = 300
 
         self.pre_send            = None
         self.post_send           = None
@@ -117,10 +106,6 @@ class session(pgraph.graph):
             self.restart_interval = settings['restart_interval']
         if settings.get('timeout') != None: 
             self.timeout = settings['timeout']
-        if settings.get('crash_threshold') != None: 
-            self.crash_threshold = settings['crash_threshold']
-        if settings.get('restart_sleep_time') != None: 
-            self.restart_sleep_time = settings['restart_sleep_time']
 
         self.total_num_mutations = 0
         self.total_mutant_index  = 0
@@ -148,7 +133,7 @@ class session(pgraph.graph):
         self.proto = self.transport_media.media_protocol()
 
         # import settings if they exist.
-        self.import_file()
+        self.load_session()
 
         # create a root node. we do this because we need to start fuzzing from a single 
         # point and the user may want to specify a number of initial requests.
@@ -174,56 +159,6 @@ class session(pgraph.graph):
     def set_post_send(self, func):
         if not func: return None
         self.post_send = func
-
-    # -----------------------------------------------------------------------------------
-    #
-    # -----------------------------------------------------------------------------------
-
-    def get_status(self):
-
-        if not self.fuzz_node: return None
-
-        if self.fuzz_node.name:
-            current_name = self.fuzz_node.name
-        else:
-            current_name = "[N/A]"
-
-        if self.finished_flag:
-            state = "finished"
-        elif self.stop_flag:
-            state = "stopped"
-        elif self.pause_flag:
-            state = "paused"
-        else:
-            state = "running"
-
-        progress_current     = float(self.fuzz_node.mutant_index) / \
-                                     float(self.fuzz_node.num_mutations()) * 100
-        progress_current     = "%.3f%%" % (progress_current)
-
-        progress_total       = float(self.total_mutant_index) / \
-                                     float(self.total_num_mutations) * 100
-        progress_total       = "%.3f%%" % (progress_total)
-
-        progress_current     = float(self.fuzz_node.mutant_index) / \
-                                     float(self.fuzz_node.num_mutations()) * 100
-        progress_current     = "%.3f%%" % (progress_current)
-
-        progress_total       = float(self.total_mutant_index) / \
-                               float(self.total_num_mutations) * 100
-        progress_total       = "%.3f%%" % (progress_total)
-
-        s_data = {"id": self.session_id,
-                  "name": current_name,
-                  "state": state,
-                  "crashes": self.crash_count,
-                  "warnings": self.warning_count,
-                  "progress": progress_total,
-                  "total_mutant_index": self.total_mutant_index,
-                  "total_num_mutations": self.total_num_mutations
-                  }
-
-        return(s_data)
 
     # -----------------------------------------------------------------------------------
     #
@@ -338,68 +273,118 @@ class session(pgraph.graph):
     #
     # -----------------------------------------------------------------------------------
 
-    def export_file(self):
-        '''
-        Dump various object values to disk.
+    def save_status(self):
 
-        @see: import_file()
-        '''
+        status = 0
+        if self.finished_flag:
+            status = 3
+        elif self.stop_flag:
+            status = 0
+        elif self.pause_flag:
+            status = 2
+        else:
+            status = 1
 
-        if not self.session_filename:
-            return
+        if self.fuzz_node.name:
+            current_name = self.fuzz_node.name
+        else:
+            current_name = ""
 
-        data = {}
-        data["session_filename"]    = self.session_filename
-        data["skip"]                = self.total_mutant_index
-        data["sleep_time"]          = self.sleep_time
-        data["restart_sleep_time"]  = self.restart_sleep_time
-        data["proto"]               = self.proto
-        data["restart_interval"]    = self.restart_interval
-        data["timeout"]             = self.timeout
-        data["crash_threshold"]     = self.crash_threshold
-        data["crashes"]             = self.crash_count
-        data["warnings"]            = self.warning_count
-        data["total_num_mutations"] = self.total_num_mutations
-        data["total_mutant_index"]  = self.total_mutant_index
-        data["pause_flag"]          = self.pause_flag
-
-        fh = open(self.directory + "/" + self.session_filename, "wb+")
-        fh.write(json.dumps(data))
-        fh.close()
+        try:
+            self.database.updateJob(self.session_id, 
+                                    status,
+                                    current_name,
+                                    self.crash_count,
+                                    self.warning_count,
+                                    self.total_mutant_index,
+                                    self.total_num_mutations)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR, self.session_id +\
+                          ": failed to save job status (%s)" % str(ex))
 
     # -----------------------------------------------------------------------------------
     #
     # -----------------------------------------------------------------------------------
 
-    def import_file(self):
+    def save_session(self):
         '''
-        Load varous object values from disk.
-
-        @see: export_file()
+        Dump various object values to database
         '''
 
+        is_update = False
         try:
-            fh   = open(self.directory + "/" + self.session_filename, "rb")
-            data = json.loads(fh.read())
-            fh.close()
-        except:
-            return
+            is_update = self.database.loadSession(self.session_id)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR, self.session_id +\
+                          ": failed to check if session data saved (%s)" % str(ex))
+            return False
+
+        if is_update:
+            try:
+                self.database.updateSession(self.session_id, {
+                    "$set": {
+                        "skip":                self.skip,
+                        "sleep_time":          self.sleep_time,
+                        "restart_interval":    self.restart_interval,
+                        "timeout":             self.timeout,
+                        "crash_count":         self.crash_count,
+                        "warning_count":       self.warning_count,
+                        "total_num_mutations": self.total_num_mutations,
+                        "total_mutant_index":  self.total_mutant_index,
+                        "pause_flag":          self.pause_flag
+                    }
+                })
+            except Exception, ex:
+                syslog.syslog(syslog.LOG_ERR, self.session_id +\
+                              ": failed to update session data (%s)" % str(ex))
+        else:
+            try:
+                self.database.saveSession({
+                    "job_id":              self.session_id,
+                    "proto":               self.proto,
+                    "skip":                self.skip,
+                    "sleep_time":          self.sleep_time,
+                    "restart_interval":    self.restart_interval,
+                    "timeout":             self.timeout,
+                    "crash_count":         self.crash_count,
+                    "warning_count":       self.warning_count,
+                    "total_num_mutations": self.total_num_mutations,
+                    "total_mutant_index":  self.total_mutant_index,
+                    "pause_flag":          self.pause_flag
+                })
+            except Exception, ex:
+                syslog.syslog(syslog.LOG_ERR, self.session_id +\
+                              ": failed to save session data (%s)" % str(ex))
+
+    # -----------------------------------------------------------------------------------
+    #
+    # -----------------------------------------------------------------------------------
+
+    def load_session(self):
+        '''
+        Load varous object values from database.
+        '''
+
+        session_data = None
+        try:
+            session_data = self.database.loadSession(self.session_id)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR, self.session_id +\
+                          ": failed to load session data (%s)" % str(ex))
+
+        if not session_data: return
 
         # update the skip variable to pick up fuzzing from last test case.
-        self.skip                = data["total_mutant_index"]
-
-        self.session_filename    = data["session_filename"]
-        self.sleep_time          = data["sleep_time"]
-        self.restart_sleep_time  = data["restart_sleep_time"]
-        self.proto               = data["proto"]
-        self.restart_interval    = data["restart_interval"]
-        self.timeout             = data["timeout"]
-        self.crash_threshold     = data["crash_threshold"]
-        self.crash_count         = data["crashes"]
-        self.warning_count       = data["warnings"]
-        self.total_num_mutations = data["total_num_mutations"]
-        self.total_mutant_index  = data["total_mutant_index"]
-        self.pause_flag          = data["pause_flag"]
+        self.skip                = session_data.get('total_mutant_index')
+        self.sleep_time          = session_data.get('sleep_time')
+        self.proto               = session_data.get('proto')
+        self.restart_interval    = session_data.get('restart_interval')
+        self.timeout             = session_data.get('timeout')
+        self.crash_count         = session_data.get('crashes')
+        self.warning_count       = session_data.get('warnings')
+        self.total_num_mutations = session_data.get('total_num_mutations')
+        self.total_mutant_index  = session_data.get('total_mutant_index')
+        self.pause_flag          = session_data.get('pause_flag')
 
     # -----------------------------------------------------------------------------------
     #
@@ -447,6 +432,7 @@ class session(pgraph.graph):
                               ": failed to establish agent connection (%s)" % str(ex))
                 self.finished_flag = True
                 self.stop_flag = True
+                self.save_status()
                 return
 
         # Get the agent to execute 
@@ -457,6 +443,7 @@ class session(pgraph.graph):
                               ": agent failed to execute command (%s)" % str(ex))
                 self.finished_flag = True
                 self.stop_flag = True
+                self.save_status()
                 return
 
             syslog.syslog(syslog.LOG_INFO, self.session_id +\
@@ -467,7 +454,9 @@ class session(pgraph.graph):
 
         for edge in self.edges_from(this_node.id):
 
-            if self.stop_flag: return 
+            if self.stop_flag:
+                self.save_status()
+                return 
 
             # the destination node is the one actually being fuzzed.
             self.fuzz_node = self.nodes[edge.dst]
@@ -482,7 +471,7 @@ class session(pgraph.graph):
             current_path += " -> %s" % self.fuzz_node.name
 
             if self.config['general']['debug'] > 1:
-                syslog.syslog(syslog.LOG_INFO, self.session_id + \
+                syslog.syslog(syslog.LOG_INFO, self.session_id +\
                               ": fuzz path: %s, fuzzed %d of %d total cases" %\
                               (current_path, self.total_mutant_index, 
                               self.total_num_mutations))
@@ -584,7 +573,8 @@ class session(pgraph.graph):
 
                     # serialize the current session state to disk.
 
-                    self.export_file()
+                    self.save_status()
+                    self.save_session()
 
                     # delay in between test cases.
 
@@ -608,6 +598,8 @@ class session(pgraph.graph):
             syslog.syslog(syslog.LOG_INFO, self.session_id + ": job finished")
             if self.agent != None and self.agent_settings != None:
                 self.agent_cleanup()
+
+        self.save_status()
 
     # -----------------------------------------------------------------------------------
     #
@@ -715,6 +707,7 @@ class session(pgraph.graph):
             self.handle_crash("fail_receive",
                               "nothing received on socket, possible crash")
 
+        self.save_status()
         return True
 
     # -----------------------------------------------------------------------------------
@@ -754,9 +747,6 @@ class session(pgraph.graph):
         '''
         Dump crash data to disk.
         '''
-
-        if not self.directory:
-            return
 
         if crash_data == None:
             return
@@ -888,7 +878,8 @@ class session(pgraph.graph):
         # In any of the above cases we pause the job or continue if we have an agent
         # and could restart the process.
 
-        self.export_file()
+        self.save_status()
+        self.save_session()
         if self.agent != None and self.agent_settings != None:
             while not self.restart_process(): pass
         else:
@@ -901,6 +892,7 @@ class session(pgraph.graph):
 
     def set_pause(self):
         self.pause_flag = 1
+        self.save_status()
 
     # -----------------------------------------------------------------------------------
     #
@@ -908,6 +900,7 @@ class session(pgraph.graph):
 
     def set_resume(self):
         self.pause_flag = 0
+        self.save_status()
 
     # -----------------------------------------------------------------------------------
     #
@@ -930,6 +923,7 @@ class session(pgraph.graph):
 
     def terminate(self):
         self.stop_flag = True
+        self.save_status()
 
     # -----------------------------------------------------------------------------------
     #
@@ -962,13 +956,13 @@ class session(pgraph.graph):
 
         try:
             if not self.agent.kill():
-                syslog.syslog(syslog.LOG_ERR, self.session_id +
+                syslog.syslog(syslog.LOG_ERR, self.session_id +\
                               ": failed to terminate remote process")
             self.agent.disconnect()
             self.agent = None
             self.agent_settings = None
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +
+            syslog.syslog(syslog.LOG_ERR, self.session_id +\
                           ": failed to clean up agent connection (%s)" % str(ex))
 
         self.agent = None

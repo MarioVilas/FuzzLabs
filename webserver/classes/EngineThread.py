@@ -105,32 +105,6 @@ class EngineThread(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def process_archive(self):
-        d = self.do_get(self.engine.address,
-                        self.engine.port,
-                        "/jobs/archive",
-                        self.engine.secret,
-                        3)
-
-        if d == None or d.get('status') == None or d.get('status') == "error":
-            self.engine_offline()
-            return False
-        if not d.get('data'): return True
-
-        self.enqueue({
-            "item":   "job",
-            "action": "handle",
-            "active": 0,
-            "engine": self.engine,
-            "data":   d.get('data')
-        })
-
-        return True
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
     def process_issues(self):
         d = self.do_get(self.engine.address,
                         self.engine.port,
@@ -208,7 +182,6 @@ class EngineThread(threading.Thread):
 
         while self.running:
             if not self.process_jobs():    self.running = False
-            if not self.process_archive(): self.running = False
             if not self.process_issues():  self.running = False
             time.sleep(self.config["general"]["data_collect_interval"])
 

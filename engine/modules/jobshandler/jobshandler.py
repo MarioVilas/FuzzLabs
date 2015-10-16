@@ -18,12 +18,14 @@ import hashlib
 import threading
 import multiprocessing
 from threading import Thread
-from multiprocessing import Process
 from pydispatch import dispatcher
-from classes import Event as ev
-from jobworker import jobworker
+from multiprocessing import Process
 
-__version__    = "2.0.0"
+from jobworker import jobworker
+from classes import Event as ev
+from classes import DatabaseHandler as dh
+
+__version__    = "2.1.0"
 
 # =============================================================================
 #
@@ -54,24 +56,22 @@ class jobshandler(threading.Thread):
 
         threading.Thread.__init__(self)
         self.root              = root
-        self.id                = self.generate_id()
         self.config            = config
         self.running           = False
-        self.jobs_dir          = self.root + "/jobs/queue" 
-        self.archived_jobs_dir = self.root + "/jobs/archived" 
-        self.job_status        = []
-        self.jobs_registered   = []
+        self.jobs_dir          = self.root + "/jobs" 
+        self.id                = self.generate_id()
+        self.database          = dh.DatabaseHandler(self.config, self.root)
         self.workers           = []
 
         syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
 
     # -------------------------------------------------------------------------
-    # 
+    #
     # -------------------------------------------------------------------------
 
     def generate_id(self):
         """
-        Generate random IDs to be used to identify the job handler and the 
+        Generate random IDs to be used to identify the job handler and the
         worker processes.
 
         @rtype:          String
@@ -83,162 +83,80 @@ class jobshandler(threading.Thread):
         return hashlib.sha1(h_in).hexdigest()
 
     # -------------------------------------------------------------------------
-    # 
+    #
     # -------------------------------------------------------------------------
 
-    def is_status_for_worker(self, worker):
+    def is_running(self):
         """
-        Check whether a worker has status registered or not.
-
-        @type  worker:   String
-        @param worker:   The ID of the worker process
-
-        @rtype:          Boolean
-        @return:         True if the worker has status registered, otherwise
-                         False.
+        Return job handler status.
         """
 
-        if len(self.job_status) == 0: return False
-        for status in self.job_status:
-            if worker == status["worker"]: return True
-        return False
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def update_worker_status(self, worker, w_status):
-        """
-        Update the worker status.
-
-        @type  worker:   String
-        @param worker:   The ID of the worker process
-        @type  worker:   Dictionary
-        @param worker:   Dictionary representing the status of the worker.
-        """
-
-        for status in self.job_status:
-            if worker == status["worker"]: status["data"] = w_status
+        return self.running
 
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
 
-    def delete_worker(self, worker_id):
+    def stop(self):
         """
-        Delete a worker. The worker is stopped then all references to it is
-        deleted.
-
-        @type  worker_id:   String
-        @param worker_id:   The ID of the worker process
-        """
-
-        w_remove = None
-        s_remove = None
+        Stop the job handler module. As part of the shutdown procedure all
+        workers will be stopped.
 
         for worker in self.workers:
-            if worker["id"] == worker_id: 
-                w_remove = worker
+            self.delete_worker(worker["id"])
 
-        if not w_remove: return
-
-        self.workers.remove(w_remove)
-        w_remove["c_queue"].put({
-                    "from": self.id,
-                    "to": worker["id"],
-                    "command": "shutdown"
-            })
-
-        w_remove["c_queue"].close()
-        w_remove["c_queue"].join_thread()
-
-        for status in self.job_status:
-            if worker_id == status["worker"]: s_remove = status
-        if s_remove: self.job_status.remove(s_remove)
-
-        if w_remove:
-            try:
-                w_remove["process"].join()
-            except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, "failed to stop worker %s (%s)" %
-                              (worker, str(ex)))
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def _q_handle_job_status(self, cmd):
-        """
-        Handle the job status information received on the Queue associated with
-        the worker the status info originates from. 
-
-        @type  cmd:      Dictionary
-        @param cmd:      A dictionary containing the job status information.
+        self.workers = []
+        syslog.syslog(syslog.LOG_INFO, "all workers stopped")
         """
 
-        if self.is_status_for_worker(cmd["from"]):
-            self.update_worker_status(cmd["from"], cmd["data"])
-        else:
-            self.job_status.append({
-                    "worker": cmd["from"],
-                    "data": cmd["data"]
-                })
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def _q_handle_pong(self, cmd):
-        """ 
-        Handle the ping response sent by a worker on the associated Queue.
-
-        @type  cmd:      Dictionary
-        @param cmd:      A dictionary containing the ping message.
-        """
-
-        worker_id = cmd["from"]
-        for worker in self.workers:
-            if worker["id"] == worker_id:
-                worker["last_report"] = time.time()
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def _q_handle_pid(self, cmd):
-        """
-        Stored the pid of the worker which is sent by the worker via the 
-        Queue associated with the worker. This information could be obtained
-        directly by checking the pid attribute of the started worker from the
-        job handler. This will be implemented later.
-            
-        @type  cmd:      Dictionary
-        @param cmd:      A dictionary containing the pid message
-        """
-
-        worker_id = cmd["from"]
-        for worker in self.workers:
-            if worker["id"] == worker_id:
-                worker["pid"] = cmd["data"]
+        self.running = False
 
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
 
-    def _q_handle_job_finished(self, cmd):
-        """
-        When a worker finished executing a job it sends a job finished message
-        on the queue associated with the worker. This handler listens for such
-        messages and removes finished jobs from the list of registered jobs
-        kept to maintain state information.
+    def process_job(self, job_id, filename):
+        job_file = self.jobs_dir + "/" + filename
 
-        @type  cmd:      Dictionary
-        @param cmd:      A dictionary containing the ID of the finished job
-        """
+        try:
+            job_data = json.load(open(job_file, 'r'))
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to load job data for job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
 
-        job_id = cmd["data"]
-        self.delete_worker(cmd["from"])
-        if job_id in self.jobs_registered: self.jobs_registered.remove(job_id)
+        job_data["job_id"]      = hashlib.md5(json.dumps(job_data)).hexdigest()
+        job_data["node"]        = ''
+        job_data["status"]      = 0
+        job_data["c_m_index"]   = 0 
+        job_data["t_m_index"]   = 0
+        job_data["crashes"]     = 0
+        job_data["warnings"]    = 0
+        job_data["job_loaded"]  = time.time()
+        job_data["job_started"] = 0
+        job_data["job_stopped"] = 0
+
+
+        job_lock = job_file.split(".")
+        job_lock[len(job_lock) - 1] = "jlock"
+        job_lock = ".".join(job_lock)
+
+        try:
+            shutil.move(job_file, job_lock)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to lock job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
+
+        if not self.database.insertJob(job_data):
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to save job data for job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
+
+        return True
 
     # -------------------------------------------------------------------------
     #
@@ -259,12 +177,7 @@ class jobshandler(threading.Thread):
 
         for worker in self.workers:
             if worker in excluded_workers: continue
-            worker["c_queue"].put({
-                "from": self.id,
-                "to": worker["id"],
-                "command": command,
-                "data": data
-            })
+            self.send_to(worker["id"], command, data)
 
     # -------------------------------------------------------------------------
     #
@@ -287,7 +200,7 @@ class jobshandler(threading.Thread):
             if worker_id == worker["id"]:
                 if self.config["general"]["debug"] > 4:
                     syslog.syslog(syslog.LOG_INFO,
-                                  "sending to worker %s, cmd: %s, data: %s" % 
+                                  "sending to worker %s, cmd: %s, data: %s" %\
                                   (worker["id"], command, str(data)))
 
                 worker["c_queue"].put({
@@ -301,30 +214,21 @@ class jobshandler(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    def handle(self, cmd):
-        """
-        Handle the received message. The handler function is dynamically
-        looked up and called, this way handling of new commands can be easily
-        implemented just by adding a handler function.
-
-        @type  cmd:      Dictionary
-        @param cmd:      A dictionary containing the message to be handled
-        """
-
-        try:
-            getattr(self, '_q_handle_' + cmd["command"], None)(cmd)
-        except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s]: failed to execute queue handler '%s' (%s)" %
-                          (self.id, cmd["command"], str(ex)))
+    def check_jobs(self):
+        for dirpath, dirnames, filenames in os.walk(self.jobs_dir):
+            for filename in filenames:
+                f = filename.split(".")
+                if len(f) < 2: continue
+                if f[1] != "job": continue
+                self.process_job(f[0], filename)
 
     # -------------------------------------------------------------------------
-    # 
+    #
     # -------------------------------------------------------------------------
 
     def listener(self):
         """
-        Check every queue assigned to workers to see if there is a message 
+        Check every queue assigned to workers to see if there is a message
         sent by a worker waiting to be processed.
         """
 
@@ -336,11 +240,57 @@ class jobshandler(threading.Thread):
                     cmd = worker["p_queue"].get_nowait()
                 except Queue.Empty:
                     pass
-                if cmd: self.handle(cmd)
+                if not cmd: continue
+
+                try:
+                    getattr(self, 'q_handle_' + cmd["command"], None)(cmd)
+                except Exception, ex:
+                    syslog.syslog(syslog.LOG_ERR,
+                                  "failed to execute queue handler '%s' (%s)" %\
+                                  (cmd["command"], str(ex)))
+
             time.sleep(1)
 
     # -------------------------------------------------------------------------
-    # 
+    #
+    # -------------------------------------------------------------------------
+
+    def delete_worker(self, worker_id):
+        """
+        Delete a worker. The worker is stopped then all references to it is
+        deleted.
+
+        @type  worker_id:   String
+        @param worker_id:   The ID of the worker process
+        """
+
+        w_remove = None
+        s_remove = None
+
+        for worker in self.workers:
+            if worker["id"] == worker_id:
+                w_remove = worker
+
+        if not w_remove: return
+
+        self.workers.remove(w_remove)
+        w_remove["c_queue"].put({
+                    "from": self.id,
+                    "to": worker["id"],
+                    "command": "shutdown"
+            })
+
+        w_remove["c_queue"].close()
+        w_remove["c_queue"].join_thread()
+
+        try:
+            w_remove["process"].join()
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR, "failed to stop worker %s (%s)" %
+                          (worker, str(ex)))
+
+    # -------------------------------------------------------------------------
+    #
     # -------------------------------------------------------------------------
 
     def start_worker(self, job_id):
@@ -360,164 +310,74 @@ class jobshandler(threading.Thread):
         syslog.syslog(syslog.LOG_INFO,
                       "initializing worker %s ..." % worker["id"])
 
-        worker["pid"]      = None
+        worker["job_id"]   = job_id
         worker["c_queue"]  = multiprocessing.Queue()
         worker["p_queue"]  = multiprocessing.Queue()
-        worker["instance"] = jobworker(self.id,
-                                       worker["id"],
-                                       job_id,
-                                       worker["c_queue"],
-                                       worker["p_queue"],
-                                       self.root,
-                                       self.config)
-        worker["process"]  = Process(target=worker["instance"].run)
-        worker["last_report"] = time.time()
-        worker["process"].start()
+
+        job_data = None
+
+        try:
+            job_data = self.database.loadJob(job_id)
+            if not job_data:
+                syslog.syslog(syslog.LOG_ERR,
+                              "failed to load data for job %s" %\
+                              job_id)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "error loading data for job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
+
+        try:
+            worker["instance"] = jobworker(self.id,
+                                           worker["id"],
+                                           job_id,
+                                           worker["c_queue"],
+                                           worker["p_queue"],
+                                           self.root,
+                                           self.config,
+                                           job_data)
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to initialize worker for job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
+
+        try:
+            worker["process"] = Process(target=worker["instance"].run)
+            worker["process"].start()
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to start job %s (%s)" %\
+                          (job_id, str(ex)))
+            return False
+
         self.workers.append(worker)
         return worker
 
     # -------------------------------------------------------------------------
-    # 
+    #
     # -------------------------------------------------------------------------
 
-    def kill_worker(self, worker):
+    def q_handle_job_finished(self, cmd):
         """
-        Kill a worker process.
+        When a worker finished executing a job it sends a job finished message
+        on the queue associated with the worker. This handler listens for such
+        messages and removes finished jobs from the list of registered jobs
+        kept to maintain state information.
 
-        @type  worker:   Dictionary
-        @param worker:   The dictionary describing the worker
+        @type  cmd:      Dictionary
+        @param cmd:      A dictionary containing the ID of the finished job
         """
 
-        if worker["pid"] != 0 and worker["pid"] != None:
-	    syslog.syslog(syslog.LOG_INFO,
-                          "killing defunct worker %s, pid: %d" % 
-                          (worker["id"], worker["pid"]))
-            os.kill(worker["pid"], signal.SIGKILL)
-            self.delete_worker(worker["id"])
+        job_id = cmd["data"]
+        self.delete_worker(cmd["from"])
 
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
 
-    def is_running(self):
-        """
-        Return job handler status.
-        """
-
-        return self.running
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def stop(self):
-        """
-        Stop the job handler module. As part of the shutdown procedure all
-        workers will be stopped.
-        """
-
-        for worker in self.workers:
-            self.delete_worker(worker["id"])
-
-        self.workers = []
-        self.running = False
-	syslog.syslog(syslog.LOG_INFO, "all workers stopped")
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def check_jobs(self):
-        """
-        Check whether a new job is available. This is done by checking for the
-        presence of new jobs in the <FUZZLABS_ROOT>/jobs directory. If a new 
-        job is found a worker process is spawned to execute the job.
-        """
-
-        for dirpath, dirnames, filenames in os.walk(self.jobs_dir):
-            for filename in filenames:
-                if len(filename.split(".")) < 2: continue
-                if filename.split(".")[1] != "job": continue
-                job_id = filename.split(".")[0]
-                if job_id in self.jobs_registered: continue
-
-                worker = self.start_worker(job_id)
-                self.jobs_registered.append(job_id)
-                syslog.syslog(syslog.LOG_INFO,
-                              "registered new job %s" % job_id)
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def format_status(self):
-        """
-        Perform concatenation of worker related details.
-
-        @rtype:          List
-        @return:         List of dictionaries describing the status of workers
-        """
-
-        f_status = []
-        for status in self.job_status:
-            n_status = {"worker": status["worker"]}
-            n_status.update(status["data"])
-            f_status.append(n_status)
-        return f_status
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_job_status(self, sender):
-        """
-        Handle job status request events sent by the web server. All worker
-        related status details are being sent back to the web server.
-        """
-
-        dispatcher.send(signal=ev.Event.EVENT__RSP_JOBS_LIST,
-                        sender="JOBSHANDLER",
-                        data=json.dumps(self.format_status()))
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_job_pause(self, sender, data):
-        """
-        Handle job pause request events sent by the web server. The requested
-        job will get paused.
-
-        @type  sender:   String
-        @param sender:   The string identifying the sender of the event
-        @type  data:     String
-        @param data:     The ID of the job to be paused
-        """
-
-        self.broadcast("job_pause", data)
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_job_resume(self, sender, data):
-        """
-        Handle job resume request events sent by the web server. The requested
-        job will get resumed.
-
-        @type  sender:   String
-        @param sender:   The string identifying the sender of the event
-        @type  data:     String
-        @param data:     The ID of the job to be resumed
-        """
-
-        self.broadcast("job_resume", data)
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_job_delete(self, sender, data):
+    def e_handle_job_delete(self, sender, data):
         """
         Handle job delete request events sent by the web server. The requested
         job will get deleted.
@@ -528,7 +388,95 @@ class jobshandler(threading.Thread):
         @param data:     The ID of the job to be deleted
         """
 
+        syslog.syslog(syslog.LOG_INFO,
+                      "job delete request received for job %s" %\
+                      str(data))
+
         self.broadcast("job_delete", data)
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def e_handle_job_restart(self, sender, data):
+
+        syslog.syslog(syslog.LOG_INFO,
+                      "job restart request received for job %s" %\
+                      str(data))
+
+        if not self.database.deleteSession(data):
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to delete session data for job %s" +\
+                          ", cannot restart job" %\
+                          data)
+            return False
+
+        self.e_handle_job_start(sender, data)
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def e_handle_job_stop(self, sender, data):
+
+        syslog.syslog(syslog.LOG_INFO,
+                      "job stop request received for job %s" %\
+                      str(data))
+
+        self.broadcast("job_stop", data)
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def e_handle_job_pause(self, sender, data):
+        """
+        Handle job pause request events sent by the web server. The requested
+        job will get paused.
+
+        @type  sender:   String
+        @param sender:   The string identifying the sender of the event
+        @type  data:     String
+        @param data:     The ID of the job to be paused
+        """
+
+        syslog.syslog(syslog.LOG_INFO,
+                      "job pause request received for job %s" %\
+                      str(data))
+
+        self.broadcast("job_pause", data)
+
+    # -------------------------------------------------------------------------
+    # 
+    # -------------------------------------------------------------------------
+
+    def e_handle_job_start(self, sender, data):
+        """
+        Handle job resume request events sent by the web server. The requested
+        job will get resumed.
+
+        @type  sender:   String
+        @param sender:   The string identifying the sender of the event
+        @type  data:     String
+        @param data:     The ID of the job to be resumed
+        """
+
+        new = True
+        for worker in self.workers:
+            if worker["job_id"] == data:
+                new = False
+
+        if new:
+            syslog.syslog(syslog.LOG_INFO,
+                          "starting job %s" %\
+                          str(data))
+            self.start_worker(data)
+        else:
+            syslog.syslog(syslog.LOG_INFO,
+                          "resuming job %s" %\
+                          str(data))
+            self.broadcast("job_resume", data)
+        return True
 
     # -------------------------------------------------------------------------
     # 
@@ -540,29 +488,36 @@ class jobshandler(threading.Thread):
         """
 
         self.running = True
-        syslog.syslog(syslog.LOG_INFO,
-                      "job handler started with ID %s" % self.id)
+        syslog.syslog(syslog.LOG_INFO, "job handler started")
 
         l = threading.Thread(target=self.listener)
         l.start()
 
-        dispatcher.connect(self.handle_job_status,
-                           signal=ev.Event.EVENT__REQ_JOBS_LIST,
+        dispatcher.connect(self.e_handle_job_start,
+                           signal=ev.Event.EVENT__REQ_JOB_START,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.handle_job_pause,
+        dispatcher.connect(self.e_handle_job_pause,
                            signal=ev.Event.EVENT__REQ_JOB_PAUSE,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.handle_job_resume,
-                           signal=ev.Event.EVENT__REQ_JOB_RESUME,
+        dispatcher.connect(self.e_handle_job_stop,
+                           signal=ev.Event.EVENT__REQ_JOB_STOP,
                            sender=dispatcher.Any)
-        dispatcher.connect(self.handle_job_delete,
+        dispatcher.connect(self.e_handle_job_restart,
+                           signal=ev.Event.EVENT__REQ_JOB_RESTART,
+                           sender=dispatcher.Any)
+        dispatcher.connect(self.e_handle_job_delete,
                            signal=ev.Event.EVENT__REQ_JOB_DELETE,
                            sender=dispatcher.Any)
 
         while self.running:
-            self.broadcast("job_status", None)
-            self.check_jobs()
-            time.sleep(3)
+            try:
+                self.check_jobs()
+            except Exception, ex:
+                syslog.syslog(syslog.LOG_ERR,
+                              "failed to process jobs (%s)" %\
+                              str(ex))
+
+            time.sleep(2)
 
         syslog.syslog(syslog.LOG_INFO, "job handler stopped")
 

@@ -6,6 +6,7 @@ $( document ).ready(function() {
     var dHeight = $(document).height();
     $("div#parser_center_wrapper").height(dHeight - 350);
 
+    /*
     var padding_select = $("#p_string_padding_byte").get(0);
     for (var rc = 0; rc < 256; rc++) {
         var so = document.createElement('option');
@@ -13,6 +14,7 @@ $( document ).ready(function() {
         so.textContent = "0x" + fixHex(rc.toString(16)).toUpperCase()
         padding_select.appendChild(so);
     }
+    */
 
     // ------------------------------------------------------------------------
     //

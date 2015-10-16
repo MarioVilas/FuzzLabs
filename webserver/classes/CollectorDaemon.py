@@ -13,21 +13,8 @@ from sqlalchemy import Column, Integer, String, Text
 from classes import DatabaseThread as dt
 from classes import EngineThread as et
 
-Base = declarative_base()
-
-# -----------------------------------------------------------------------------
-#
-# -----------------------------------------------------------------------------
-
-class Engine(Base):
-    __tablename__ = 'engines'
-    id        = Column(Integer, primary_key=True)
-    name      = Column(String(32), unique=True)
-    address   = Column(String(255), unique=True)
-    port      = Column(Integer)
-    secret    = Column(String(128))
-    active    = Column(Integer)
-    owner     = Column(String(32))
+from classes.database.Base import Base
+from classes.database.Engine import Engine
 
 # -----------------------------------------------------------------------------
 #
@@ -118,10 +105,25 @@ class CollectorDaemon():
 
         syslog.syslog(syslog.LOG_INFO, 'FuzzLabs collector is running')
 
-        db_engine = create_engine('sqlite:///' + self.root +\
-                               '/etc/database/webserver.db', echo=False)
-        Session = sessionmaker(bind = db_engine)
-        db = Session()
+        db_engine = None
+        db = None
+        try:
+            db_engine = create_engine('sqlite:///' + self.root +\
+                                   '/etc/webserver.db', echo=False)
+            Session = sessionmaker(bind = db_engine)
+            db = Session()
+            Base.metadata.create_all(db_engine)
+            db.commit()
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_INFO,
+                          'collector thread failed to connect to database, stopping')
+            return
+
+        if not db_engine or not db:
+            syslog.syslog(syslog.LOG_INFO,
+                          'collector thread failed to connect to database, stopping')
+            return
+
         db_queue = Queue(self.config["general"]["database_queue_size"])
 
         dbt = dt.DatabaseThread(self.root, self.config, db_queue)

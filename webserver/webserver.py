@@ -49,7 +49,7 @@ whitelist["port"]      = '^[0-9]{1,5}$'
 
 SECRET_KEY              = 'ufC*o%|V3Rji5nGIK^J7D8sNlgizXdN1eg-+i47of8YP4LdVN*zHk-^M*RrH'
 SESSION_COOKIE_SECURE   = True
-SQLALCHEMY_DATABASE_URI = 'sqlite:///etc/database/webserver.db'
+SQLALCHEMY_DATABASE_URI = 'sqlite:///etc/webserver.db'
 
 # -----------------------------------------------------------------------------
 #
@@ -396,17 +396,37 @@ def api_engine_activate(id):
 @validate
 @api_authenticated
 def api_engine_jobs():
-    jobs = db.session.query(Job).order_by(desc(Job.active))
+    jobs = db.session.query(Job).order_by(desc(Job.job_started))
 
     if jobs.count() == 0:
         r = Response("success", "No jobs available.").get()
         return r
 
-    job_list = []
+    jobs_list = []
     for job in jobs:
-        job_list.append(json.loads(job.job_data))
+        job_data = {
+            "id"          : job.id,
+            "job_id"      : job.job_id,
+            "name"        : job.name,
+            "engine_id"   : job.engine_id,
+            "job_loaded"  : job.job_loaded,
+            "job_started" : job.job_started,
+            "job_stopped" : job.job_stopped,
+            "status"      : job.status,
+            "c_m_index"   : job.c_m_index,
+            "t_m_index"   : job.t_m_index,
+            "crashes"     : job.crashes,
+            "warnings"    : job.warnings,
+            "session"     : json.loads(job.session),
+            "target"      : json.loads(job.target),
+            "conditions"  : json.loads(job.conditions),
+            "agent"       : json.loads(job.agent),
+            "requests"    : json.loads(job.requests)
+        }
 
-    r = Response("success", "jobs", job_list).get()
+        jobs_list.append(job_data)
+
+    r = Response("success", "jobs", jobs_list).get()
     return r
 
 # -----------------------------------------------------------------------------

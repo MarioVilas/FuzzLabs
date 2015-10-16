@@ -87,112 +87,6 @@ class system_stats:
 #
 # =============================================================================
 
-class archives_collector(threading.Thread):
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def __init__(self, config):
-        threading.Thread.__init__(self)
-        self.config = config
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_rsp_archives_list(self, sender, data = ""):
-        global archives_status
-        archives_status = data
-
-        if self.config['general']['debug'] >= 1:
-            syslog.syslog(syslog.LOG_INFO, "archives received: %s" %
-                          str(archives_status))
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def get(self):
-        global archives_status
-        return archives_status
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def run(self):
-        syslog.syslog(syslog.LOG_INFO, "archives status collector started")
-        dispatcher.connect(self.handle_rsp_archives_list,
-                           signal=ev.Event.EVENT__RSP_ARCHIVES_LIST,
-                           sender=dispatcher.Any)
-        while True:
-            try:
-                dispatcher.send(signal=ev.Event.EVENT__REQ_ARCHIVES_LIST,
-                                sender="WEBSERVER")
-            except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              "failed to send archives request event (%s)" %
-                              str(ex))
-            time.sleep(5)
-
-# =============================================================================
-#
-# =============================================================================
-
-class jobs_status_collector(threading.Thread):
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def __init__(self, config):
-        threading.Thread.__init__(self)
-        self.config = config
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def handle_rsp_jobs_list(self, sender, data = ""):
-        global jobs_status
-        jobs_status = data
-
-        if self.config['general']['debug'] >= 1:
-            syslog.syslog(syslog.LOG_INFO, "jobs status received: %s" %
-                          str(jobs_status))
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def get(self):
-        global jobs_status
-        return jobs_status
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    def run(self):
-        syslog.syslog(syslog.LOG_INFO, "jobs status collector started")
-        dispatcher.connect(self.handle_rsp_jobs_list,
-                           signal=ev.Event.EVENT__RSP_JOBS_LIST,
-                           sender=dispatcher.Any)
-        while True:
-            try:
-                dispatcher.send(signal=ev.Event.EVENT__REQ_JOBS_LIST,
-                                sender="WEBSERVER")
-            except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              "failed to send job list request event (%s)" %
-                              str(ex))
-            time.sleep(3)
-
-# =============================================================================
-#
-# =============================================================================
-
 class Response:
 
     def __init__(self, status = None, message = None, data = None):
@@ -277,30 +171,6 @@ def apiheaders(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# -----------------------------------------------------------------------------
-#
-# -----------------------------------------------------------------------------
-
-def is_job_archived(job_id):
-    global fuzzlabs_root
-    a_dir = fuzzlabs_root + "/jobs/archived/" + job_id
-
-    if os.path.exists(a_dir):
-        return True
-    return False
-
-# -----------------------------------------------------------------------------
-#
-# -----------------------------------------------------------------------------
-
-def is_job_queued(job_id):
-    global fuzzlabs_root
-    q_dir = fuzzlabs_root + "/jobs/queue/" + job_id
-
-    if os.path.exists(q_dir):
-        return True
-    return False
-
 # =============================================================================
 #
 # =============================================================================
@@ -333,8 +203,6 @@ class webserver(threading.Thread):
         self.setDaemon(True)
         self.running = True
         self.server = None
-        self.jobs_collector = None
-        self.archives_collector = None
 
         database = db.DatabaseHandler(self.config, 
                                       self.root)
@@ -381,22 +249,19 @@ class webserver(threading.Thread):
     @apiheaders
     @validate
     def r_jobs_queue():
-        global jobs_status
-        r = Response("success", "jobs", json.loads(jobs_status)).get()
+        global database
+        jobs = None
+        try:
+            jobs = database.loadJobs()
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to retrieve jobs from database: %s" %\
+                          str(ex))
+            r = Response("error", "jobs").get()
+            return r
+
+        r = Response("success", "jobs", jobs).get()
         return r
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
-    @app.route("/jobs/archive", methods=['GET'])
-    @apiheaders
-    @validate
-    def r_jobs_archive():
-        global archives_status
-        r = Response("success", "jobs", json.loads(archives_status)).get()
-        return r
-
 
     # -------------------------------------------------------------------------
     #
@@ -405,10 +270,10 @@ class webserver(threading.Thread):
     @app.route("/jobs/<job_id>/stop", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_delete(job_id):
+    def r_jobs_stop(job_id):
         syslog.syslog(syslog.LOG_INFO,
                       "stop request received for job: %s" % job_id)
-        dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_DELETE,
+        dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_STOP,
                         sender="WEBSERVER",
                         data=job_id)
         r = Response("success", "stopped").get()
@@ -421,12 +286,18 @@ class webserver(threading.Thread):
     @app.route("/jobs/<job_id>/delete", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_trash(job_id):
+    def r_jobs_delete(job_id):
         syslog.syslog(syslog.LOG_INFO,
                       "delete request received for job: %s" % job_id)
-        dispatcher.send(signal=ev.Event.EVENT__REQ_ARCHIVES_DELETE,
+        dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_DELETE,
                         sender="WEBSERVER",
                         data=job_id)
+        try:
+            database.deleteJob(job_id)
+        except Exception, ex:
+            # TODO
+            syslog.syslog(syslog.LOG_ERR,
+                          "failed to delete job %s: %s" % (job_id, str(ex)))
         r = Response("success", "deleted").get()
         return r
 
@@ -440,7 +311,7 @@ class webserver(threading.Thread):
     def r_jobs_restart(job_id):
         syslog.syslog(syslog.LOG_INFO,
                       "restart request received for job: %s" % job_id)
-        dispatcher.send(signal=ev.Event.EVENT__REQ_ARCHIVES_RESTART,
+        dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_RESTART,
                         sender="WEBSERVER",
                         data=job_id)
         r = Response("success", "restarted").get()
@@ -474,18 +345,9 @@ class webserver(threading.Thread):
         syslog.syslog(syslog.LOG_INFO,
                       "start request received for job: %s" % job_id)
 
-        if is_job_archived(job_id):
-            syslog.syslog(syslog.LOG_INFO,
-                          "starting archived job: %s" % job_id)
-            dispatcher.send(signal=ev.Event.EVENT__REQ_ARCHIVES_START,
-                            sender="WEBSERVER",
-                            data=job_id)
-        else:
-            syslog.syslog(syslog.LOG_INFO,
-                          "resuming job: %s" % job_id)
-            dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_RESUME,
-                            sender="WEBSERVER",
-                            data=job_id)
+        dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_START,
+                        sender="WEBSERVER",
+                        data=job_id)
 
         r = Response("success", "started").get()
         return r
@@ -613,21 +475,6 @@ class webserver(threading.Thread):
     # -------------------------------------------------------------------------
 
     def run(self):
-        try:
-            self.jobs_collector = jobs_status_collector(self.config)
-            self.jobs_collector.start()
-        except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          'failed to start job status collector (%s)' %
-                          str(ex))
-
-        try:
-            self.archives_collector = archives_collector(self.config)
-            self.archives_collector.start()
-        except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          'failed to start archives collector (%s)' % str(ex))
-
         syslog.syslog(syslog.LOG_INFO, 'webserver thread is accepting data')
         self.app.run(host=self.config['api']['listen_address'],
                      port=self.config['api']['listen_port'],

@@ -51,12 +51,11 @@ class DatabaseThread(threading.Thread):
         if not engine or not data: return
 
         for job in data:
-            job["engine"] = engine.id
             c = 0
             try:
                 c = db.query(Job).filter(
                             (Job.engine_id == engine.id) &\
-                            (Job.job_id == job["id"])
+                            (Job.job_id == job["job_id"])
                             ).count()
             except Exception, ex:
                 syslog.syslog(syslog.LOG_ERR,
@@ -65,29 +64,58 @@ class DatabaseThread(threading.Thread):
                 return
             if c == 0:
                 try:
-                    n_job = Job(engine_id = engine.id,
-                                active = active,
-                                job_id = job["id"],
-                                job_data = json.dumps(job))
+                    # TODO: UPDATE TO NEW STRUCTURE
+                    n_job = Job(job_id      = job["job_id"],
+                                name        = job["name"],
+                                engine_id   = engine.id,
+                                status      = job["status"],
+                                c_m_index   = job["c_m_index"],
+                                t_m_index   = job["t_m_index"],
+                                crashes     = job["crashes"],
+                                warnings    = job["warnings"],
+                                job_loaded  = job["job_loaded"],
+                                job_started = job["job_started"],
+                                job_stopped = job["job_stopped"],
+                                session     = json.dumps(job["session"]),
+                                target      = json.dumps(job["target"]),
+                                conditions  = json.dumps(job["conditions"]),
+                                requests    = json.dumps(job["request"]),
+                                agent       = json.dumps(job.get("agent")))
                     db.add(n_job)
                     db.commit()
                 except Exception, ex: 
                     syslog.syslog(syslog.LOG_ERR,
                                   'failed to add job to the database: %s' %\
                                   str(ex))
+                    continue
             else:
                 try:
                     n_job = db.query(Job).filter(
                                     (Job.engine_id == engine.id) &\
-                                    (Job.job_id == job["id"])).one()
-                    n_job.active = active
-                    n_job.job_data = json.dumps(job)
+                                    (Job.job_id == job["job_id"])).one()
+
+                    n_job.name        = job["name"]
+                    n_job.status      = job["status"]
+                    n_job.c_m_index   = job["c_m_index"]
+                    n_job.t_m_index   = job["t_m_index"]
+                    n_job.crashes     = job["crashes"]
+                    n_job.warnings    = job["warnings"]
+                    n_job.job_loaded  = job["job_loaded"]
+                    n_job.job_started = job["job_started"]
+                    n_job.job_stopped = job["job_stopped"]
+                    n_job.session     = json.dumps(job["session"])
+                    n_job.target      = json.dumps(job["target"])
+                    n_job.conditions  = json.dumps(job["conditions"])
+                    n_job.requests    = json.dumps(job["request"])
+                    n_job.agent       = json.dumps(job.get("agent"))
+
                     db.add(n_job)
                     db.commit()
                 except Exception, ex: 
                     syslog.syslog(syslog.LOG_ERR,
                                   'failed to update job in database: %s' %\
                                   str(ex))
+                    continue
 
     # -------------------------------------------------------------------------
     #
@@ -138,7 +166,7 @@ class DatabaseThread(threading.Thread):
 
         try:
             engine = create_engine('sqlite:///' + self.root +\
-                                   '/etc/database/webserver.db', echo=False)
+                                   '/etc/webserver.db', echo=False)
             Session = sessionmaker(bind = engine)
             db = Session()
             Base.metadata.create_all(engine)

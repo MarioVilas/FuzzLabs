@@ -118,7 +118,6 @@ def s_block_start (name, group=None, encoder=None, dep=None, dep_value=None, dep
     with indenting::
 
         if s_block_start("header"):
-            s_static("\\x00\\x01")
             if s_block_start("body"):
                 ...
 
@@ -273,6 +272,19 @@ def s_bitfield (value, length, fields=[], fuzzable=True, name=None):
 
     bitfield = primitives.bitfield(value, blocks.CURRENT, length, fuzzable, fields, name)
     blocks.CURRENT.push(bitfield)
+
+def s_static (value, name=None):
+    '''
+    Push a static value onto the current block stack.
+    @see: Aliases: s_dunno(), s_raw(), s_unknown()
+    @type  value: Raw
+    @param value: Raw static data
+    @type  name:  String
+    @param name:  (Optional, def=None) Specifying a name gives you direct access to a primitive
+    '''
+
+    static = primitives.static(value, name)
+    blocks.CURRENT.push(static)
 
 def s_binary (value, name=None):
     '''

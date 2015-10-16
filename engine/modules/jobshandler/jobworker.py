@@ -24,7 +24,7 @@ class jobworker():
     # 
     # -------------------------------------------------------------------------
 
-    def __init__(self, parent, id, job_id, c_queue, p_queue, root, config):
+    def __init__(self, parent, id, job_id, c_queue, p_queue, root, config, job):
         """
         Initialize the worker
 
@@ -48,16 +48,12 @@ class jobworker():
         self.c_queue           = c_queue
         self.p_queue           = p_queue
         self.config            = config
-        self.running           = True
+        self.running           = False
         self.core              = None
+        self.job_data          = job
 
         self.job_id            = job_id
-        self.job_path          = None
-        self.job_data          = None
         self.job_status        = {}
-
-        self.jobs_dir          = self.root + "/jobs/queue" 
-        self.archived_jobs_dir = self.root + "/jobs/archived" 
 
         syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
 
@@ -65,7 +61,7 @@ class jobworker():
     # 
     # -------------------------------------------------------------------------
 
-    def _q_handle_shutdown(self, cmd):
+    def q_handle_shutdown(self, cmd):
         """
         Handle worker shutdown request sent by the parent. The "cmd" argument
         is not used.
@@ -79,54 +75,7 @@ class jobworker():
     # 
     # -------------------------------------------------------------------------
 
-    def _q_handle_ping(self, cmd):
-        """
-        Reply to the ping message sent by the parent. The "cmd" argument is
-        not used. 
-        """
-
-        self.p_queue.put({
-                          "to": self.parent,
-                          "from": self.id,
-                          "command": "pong"
-                         })
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def _q_handle_job_status(self, cmd):
-        """
-        Reply to the job status request sent by the parent. The "cmd" argument
-        is not used.
-        """
-
-        if not self.core: return {}
-
-        self.job_status = self.core.get_status()
-        if self.job_status == None:
-            self.job_status = {}
-            return {}
-
-        data = {
-            "id": self.job_id,
-            "job": self.job_data,
-            "session": self.job_status
-        }
-
-        self.p_queue.put({
-                          "to": self.parent,
-                          "from": self.id,
-                          "command": "job_status",
-                          "data": data
-                         })
-        self.job_status = {}
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def _q_handle_job_pause(self, cmd):
+    def q_handle_job_pause(self, cmd):
         """
         Pause the job as requested by the parent.
 
@@ -141,7 +90,7 @@ class jobworker():
     # 
     # -------------------------------------------------------------------------
 
-    def _q_handle_job_resume(self, cmd):
+    def q_handle_job_resume(self, cmd):
         """
         Resume the job as requested by the parent.
 
@@ -156,7 +105,7 @@ class jobworker():
     #
     # -------------------------------------------------------------------------
 
-    def _q_handle_job_delete(self, cmd):
+    def q_handle_job_delete(self, cmd):
         """
         Delete the job as requested by the parent.
 
@@ -185,7 +134,7 @@ class jobworker():
         if not self.validate_queue_message(cmd): return
         try:
             if not self.core: return
-            getattr(self, '_q_handle_' + cmd["command"], None)(cmd)
+            getattr(self, 'q_handle_' + cmd["command"], None)(cmd)
         except Exception, ex:
             syslog.syslog(syslog.LOG_ERR,
                           "w[%s]: failed to execute queue handler '%s' (%s)" % 
@@ -266,49 +215,15 @@ class jobworker():
         r_folder = self.root + "/requests"
         if r_folder not in sys.path: sys.path.insert(0, r_folder)
         global descriptor
-        descriptor = __import__(self.job_data['request']['request_file'])
-
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def load_job_data(self, f_path):
-        """
-        Load the job descriptor.
-
-        @type  f_path:   String
-        @param f_path:   Full path of the job descriptor
-
-        @rtype:          Mixed
-        @return:         Job description as a dictionary or None if failed to
-                         load
-        """
-
-        try:
-            job_lock = self.jobs_dir + "/" + \
-                       self.job_id + "/" + \
-                       self.job_id + ".jlock"
-            if os.path.isfile(job_lock):
-                syslog.syslog(syslog.LOG_ERR,
-                              "w[%s] job %s is locked, exiting" % 
-                              (self.id, self.job_id))
-                return None
-
-            shutil.move(f_path, job_lock)
-            data = json.load(open(job_lock, 'r'))
-            return data
-        except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to load job data (%s)" % 
-                          (self.id, str(ex)))
-            return None
+        request_file = self.job_data['request']['request_file']
+        descriptor = __import__(request_file)
 
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
 
     def load_callbacks(self, f_name = None):
+        global descriptor
         if not f_name: return None
         try:
             f_name = getattr(descriptor, f_name)
@@ -339,35 +254,44 @@ class jobworker():
                           (self.id, self.job_id, str(ex)))
             return False
 
+        settings   = self.job_data['session']
+        agent      = self.job_data.get('agent')
+        transport  = self.job_data['target']['transport']
+        endpoint   = self.job_data['target']['endpoint']
+        conditions = self.job_data['conditions']
+        pre_send   = self.job_data['request'].get('pre_send')
+        post_send  = self.job_data['request'].get('post_send')
+
         try:
             self.core = sessions.session(self.config, 
                                  self.root,
-                                 self.job_path,
                                  self.job_id,
-                                 self.job_data)
-            self.core.add_target(self.job_data["target"]["endpoint"])
+                                 settings,
+                                 transport,
+                                 conditions)
+            self.core.add_target(endpoint)
 
-            if ("agent" in self.job_data["target"]):
-                rc = self.core.add_agent(self.job_data["target"]["agent"])
+            if agent and agent != {}:
+                rc = self.core.add_agent(agent)
                 if (rc == False):
                     syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to set up agent for job %s" %
+                          "w[%s] failed to set up agent for job %s" %\
                           (self.id, self.job_id))
                     return False
         except Exception, ex:
             syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to initialize job %s (%s)" %
+                          "w[%s] failed to initialize job %s (%s)" %\
                           (self.id, self.job_id, str(ex)))
             return False
 
-        pre_send = self.load_callbacks(self.job_data["request"].get('pre_send'))
-        post_send = self.load_callbacks(self.job_data["request"].get('post_send'))
+        pre_send = self.load_callbacks(pre_send)
+        post_send = self.load_callbacks(post_send)
 
         self.core.set_pre_send(pre_send)
         self.core.set_post_send(post_send)
 
         try:
-            for path in self.job_data["request"]["graph"]:
+            for path in self.job_data['request']['graph']:
                 n_c = path.get('current')
                 if n_c != None: n_c = s_get(n_c)
                 n_n = path.get('next')
@@ -382,20 +306,6 @@ class jobworker():
             return False
 
         return True
-
-    # -------------------------------------------------------------------------
-    # 
-    # -------------------------------------------------------------------------
-
-    def archive_job(self):
-        """
-        Archive the current job.
-        """
-
-        if os.path.isdir(self.archived_jobs_dir + "/" + self.job_id):
-            shutil.rmtree(self.archived_jobs_dir + "/" + self.job_id)
-        shutil.move(self.jobs_dir + "/" + self.job_id,
-                    self.archived_jobs_dir + "/")
 
     # -------------------------------------------------------------------------
     # 
@@ -423,13 +333,6 @@ class jobworker():
 
         syslog.syslog(syslog.LOG_INFO,
                       "w[%s]: job %s finished" % (self.id, self.job_id))
-        try:
-            self.archive_job()
-        except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to archive job %s (%s)" %
-                          (self.id, self.job_id, str(ex)))
-            return
 
     # -------------------------------------------------------------------------
     # 
@@ -453,28 +356,16 @@ class jobworker():
         Main function of the worker.
         """
 
+        self.running = True
         syslog.syslog(syslog.LOG_INFO, "worker started: %s, pid: %d" % 
                           (self.id, os.getpid()))
         l = threading.Thread(target=self.listener)
         l.start()
 
-        self.p_queue.put({
-                          "to": self.parent,
-                          "from": self.id,
-                          "command": "pid",
-                          "data": os.getpid()
-                         })
-
         syslog.syslog(syslog.LOG_INFO,
                       "worker %s executing job %s" % (self.id, self.job_id))
-        job_data = self.load_job_data(self.jobs_dir + "/" +\
-                                      self.job_id + "/" +\
-                                      self.job_id + ".job")
 
-        if job_data:
-            self.job_path = self.jobs_dir + "/" + self.job_id
-            self.job_data = job_data
-            if self.setup_core(): self.start_fuzzing()
+        if self.setup_core(): self.start_fuzzing()
 
         self.stop_worker()
 

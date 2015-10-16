@@ -14,20 +14,18 @@
         "endpoint": {
             "address": "127.0.0.1",
             "port": 80
-        },
-        "conditions": {
-            "fail_connection": ["handle"],
-            "fail_receive": ["pass"],
-            "fail_send": ["handle"]
         }
+    },
+    "conditions": {
+        "fail_connection": ["handle"],
+        "fail_receive": ["pass"],
+        "fail_send": ["handle"]
     },
     "request": {
         "request_file": "file_TEST",
-        "pre_send": "file_presend",
-        "post_send": "file_postsend",
         "graph":
         [
-            {"current": "TEST", "callback": "file_callback"}
+            {"current": "TEST"}
         ]
     }
 }

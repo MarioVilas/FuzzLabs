@@ -12,7 +12,6 @@ class Job(Base):
     id          = Column(Integer, primary_key=True)
     job_id      = Column(String(32), unique=True)
     name        = Column(String(64))
-    engine_id   = Column(Integer)
 	
     # Job Details
     session     = Column(Text)
@@ -22,6 +21,7 @@ class Job(Base):
     agent       = Column(Text)
 	
     # Job Status Information
+    node        = Column(String(64))
     status      = Column(Integer)
     c_m_index   = Column(Integer)
     t_m_index   = Column(Integer)

@@ -51,7 +51,7 @@ class ModuleHandler():
             if not mod:
                 syslog.syslog(syslog.LOG_ERR,
                               'failed to load module: ' + \
-                               mod["name"] + " (%s)" % str(ex))
+                               module_name)
                 continue
 
             try:
