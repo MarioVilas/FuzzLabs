@@ -47,9 +47,12 @@ whitelist["port"]      = '^[0-9]{1,5}$'
 #
 # -----------------------------------------------------------------------------
 
-SECRET_KEY              = 'ufC*o%|V3Rji5nGIK^J7D8sNlgizXdN1eg-+i47of8YP4LdVN*zHk-^M*RrH'
-SESSION_COOKIE_SECURE   = True
-SQLALCHEMY_DATABASE_URI = 'sqlite:///etc/webserver.db'
+SECRET_KEY                 = 'ufC*o%|V3Rji5nGIK^J7D8sNlgizXdN1eg-+i47of8YP4LdVN*zHk-^M*RrH'
+SESSION_COOKIE_HTTPONLY    = True
+SESSION_COOKIE_SECURE      = True
+SESSION_COOKIE_NAME        = "FLSESS"
+PERMANENT_SESSION_LIFETIME = 1800
+SQLALCHEMY_DATABASE_URI    = 'sqlite:///etc/webserver.db'
 
 # -----------------------------------------------------------------------------
 #
@@ -172,6 +175,8 @@ def headers(f):
     @add_response_headers({'X-Frame-Options': 'SAMEORIGIN'})
     @add_response_headers({'X-XSS-Protection': '1; mode=block'})
     @add_response_headers({'X-Content-Type-Options': 'nosniff'})
+    @add_response_headers({'Content-Security-Policy': 'default-src \'self\''})
+    @add_response_headers({'Strict-Transport-Security': 'max-age=172800; includeSubDomains'})
     def decorated_function(*args, **kwargs):
         return f(*args, **kwargs)
     return decorated_function
