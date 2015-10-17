@@ -7,8 +7,8 @@ import sys
 import inspect
 from daemon import runner
 
-from classes import ConfigurationHandler as ch
-from classes import FuzzlabsDaemon as fd
+from classes.ConfigurationHandler import ConfigurationHandler
+from classes.FuzzlabsDaemon import FuzzlabsDaemon
 
 # -----------------------------------------------------------------------------
 #
@@ -35,13 +35,13 @@ if __name__ == "__main__":
                         inspect.getfile(inspect.currentframe()
                     )))
     try:
-        CONFIG = ch.ConfigurationHandler(ROOT_DIR + "/etc/engine.config").get()
+        CONFIG = ConfigurationHandler(ROOT_DIR + "/etc/engine.config").get()
     except Exception, ex:
         print "[E] failed to load configuration: %s" % str(ex)
         sys.exit(1)
 
     try:
-        DAEMON = fd.FuzzlabsDaemon(ROOT_DIR, CONFIG)
+        DAEMON = FuzzlabsDaemon(ROOT_DIR, CONFIG)
     except Exception, ex:
         print "[E] failed to initialize daemon: %s" % str(ex)
         sys.exit(1)

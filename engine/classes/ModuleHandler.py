@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-from classes import DatabaseHandler as dh
+from classes.DatabaseHandler import DatabaseHandler
 
 class ModuleHandler():
     """
@@ -31,7 +31,7 @@ class ModuleHandler():
         self.config = config
         self.loaded_modules = []
         self.modules_dir = self.root + "/modules"
-        self.database        = dh.DatabaseHandler(self.config, self.root)
+        self.database        = DatabaseHandler(self.config, self.root)
 
         self.__init_modules()
 

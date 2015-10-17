@@ -5,8 +5,8 @@ import sys
 import time
 import signal
 
-from classes import ModuleHandler as mh
-from classes import DatabaseHandler as dh
+from classes.ModuleHandler import ModuleHandler
+from classes.DatabaseHandler import DatabaseHandler
 
 class FuzzlabsDaemon():
     """
@@ -38,7 +38,7 @@ class FuzzlabsDaemon():
         self.pidfile_path    = self.config['daemon']['pidfile']
         self.pidfile_timeout = self.config['daemon']['pidfile_timeout']
         self.running         = True
-        self.database        = dh.DatabaseHandler(self.config, self.root)
+        self.database        = DatabaseHandler(self.config, self.root)
 
     # -------------------------------------------------------------------------
     #
@@ -72,7 +72,7 @@ class FuzzlabsDaemon():
             sys.exit(1)
 
         try:
-            self.modules = mh.ModuleHandler(self.root, self.config)
+            self.modules = ModuleHandler(self.root, self.config)
         except Exception, ex:
             self.database.log("error", "failed to load modules", str(ex))
             sys.exit(1)
