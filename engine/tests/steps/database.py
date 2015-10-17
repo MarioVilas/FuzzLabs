@@ -18,7 +18,7 @@ CONFIG_FILE = ROOT_DIR + "/../../etc/engine.config"
 CONFIG      = ConfigurationHandler(CONFIG_FILE).get()
 DATABASE    = DatabaseHandler(CONFIG, ROOT_DIR)
 
-SESSION_DATA = {
+JOB_DATA = SESSION_DATA = {
     "job_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "data": "this is just test data"
 }
@@ -67,4 +67,48 @@ def step_impl(context):
 @then('true is returned if update was successful')
 def step_impl(context):
     assert context.ret_val
+
+@when('we retrieve the list of jobs')
+def step_impl(context):
+    context.ret_val = DATABASE.loadJobs()
+
+@then('a job list is returned')
+def step_impl(context):
+    assert type(context.ret_val) == list
+
+@when('we insert a job into the database')
+def step_impl(context):
+    context.ret_val = DATABASE.insertJob(JOB_DATA)
+
+@then('true is returned if job was saved')
+def step_impl(context):
+    assert context.ret_val == True
+
+@when('we load the job from the database')
+def step_impl(context):
+    context.ret_val = DATABASE.loadJob(JOB_DATA["job_id"])
+
+@then('the job description is returned')
+def step_impl(context):
+    assert context.ret_val["job_id"] == JOB_DATA["job_id"]
+    assert context.ret_val["data"] == JOB_DATA["data"]
+
+@when('we update a job in the database')
+def step_impl(context):
+    context.ret_val = DATABASE.updateJob(JOB_DATA["job_id"],
+                                         1,
+                                         "TEST",
+                                         0, 1, 2, 3)
+
+@then('true is returned if job was updated')
+def step_impl(context):
+    assert context.ret_val == True
+
+@when('we delete a job in the database')
+def step_impl(context):
+    context.ret_val = DATABASE.deleteJob(JOB_DATA["job_id"])
+
+@then('true is returned if job was deleted')
+def step_impl(context):
+    assert context.ret_val == True
 

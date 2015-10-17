@@ -88,32 +88,6 @@ class DatabaseHandler:
     #
     # -------------------------------------------------------------------------
 
-    def updateJob(self, job_id, status = None, node = None, crashes = None, 
-                  warnings = None, c_m_index = None, t_m_index = None):
-
-
-        try:
-            r = self.database.jobs.update({"job_id": job_id}, {
-                "$set": {
-                    "status":    status,
-                    "node":      node,
-                    "crashes":   crashes,
-                    "warnings":  warnings,
-                    "c_m_index": c_m_index,
-                    "t_m_index": t_m_index
-                }
-            })
-        except Exception, ex:
-            self.log("critical",
-                     "database updateJob() failed",
-                     str(ex))
-            return False
-        return True
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
     def loadJobs(self):
         """
         Returns a simple list of all jobs in the database.
@@ -130,7 +104,7 @@ class DatabaseHandler:
             self.log("critical",
                      "database loadJobs() failed",
                      str(ex))
-            return jobs_list
+            return None
 
     # -------------------------------------------------------------------------
     #
@@ -163,11 +137,38 @@ class DatabaseHandler:
         """
 
         if not data: return False
+        if not data.get('job_id'): return False
         try:
             self.database.jobs.insert(data)
         except Exception, ex:
             self.log("critical",
                      "database insertJob() failed",
+                     str(ex))
+            return False
+        return True
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def updateJob(self, job_id, status = None, node = None, crashes = None,
+                  warnings = None, c_m_index = None, t_m_index = None):
+
+
+        try:
+            r = self.database.jobs.update({"job_id": job_id}, {
+                "$set": {
+                    "status":    status,
+                    "node":      node,
+                    "crashes":   crashes,
+                    "warnings":  warnings,
+                    "c_m_index": c_m_index,
+                    "t_m_index": t_m_index
+                }
+            })
+        except Exception, ex:
+            self.log("critical",
+                     "database updateJob() failed",
                      str(ex))
             return False
         return True
