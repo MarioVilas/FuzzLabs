@@ -5,7 +5,8 @@ Manage FuzzLabs modules.
 import os
 import sys
 import time
-import syslog
+
+from classes import DatabaseHandler as dh
 
 class ModuleHandler():
     """
@@ -30,7 +31,8 @@ class ModuleHandler():
         self.config = config
         self.loaded_modules = []
         self.modules_dir = self.root + "/modules"
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
+        self.database        = dh.DatabaseHandler(self.config, self.root)
+
         self.__init_modules()
 
     # -------------------------------------------------------------------------
@@ -49,18 +51,17 @@ class ModuleHandler():
 
             mod = self.__load_module_by_name(module_name)
             if not mod:
-                syslog.syslog(syslog.LOG_ERR,
-                              'failed to load module: ' + \
-                               module_name)
+                self.database.log("error",
+                                  "failed to load module: %s" % module_name)
                 continue
 
             try:
                 mod["instance"].start()
                 self.loaded_modules.append(mod)
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              'failed to start module: ' + \
-                               mod["name"] + " (%s)" % str(ex))
+                self.database.log("error",
+                                  "failed to start module: %s" % mod["name"],
+                                  str(ex))
 
     # -------------------------------------------------------------------------
     #
@@ -119,9 +120,9 @@ class ModuleHandler():
                     time.sleep(1)
                 unloaded.append(module)
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              'failed to stop module: ' + \
-                              module["name"] + " (%s)" % str(ex))
+                self.database.log("error",
+                                  "failed to unload module: %s" % module["name"],
+                                  str(ex))
 
         for module in unloaded:
             self.loaded_modules.remove(module)
@@ -141,7 +142,8 @@ class ModuleHandler():
         @return:         None = not loaded, Dictionary = loaded module
         """
 
-        syslog.syslog(syslog.LOG_INFO, "loading module " + name)
+        self.database.log("info", "loading module: %s" % name)
+
         module_dir = os.path.join(self.modules_dir, name)
 
         l_mod = None
@@ -150,9 +152,10 @@ class ModuleHandler():
             l_mod = reload(__import__(name, fromlist=[name]))
             sys.path.remove(module_dir)
         except Exception as ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to import module " + name +\
-                          " (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to import module: %s" % str(name),
+                              str(ex))
+
             sys.path.remove(module_dir)
             return None
 
@@ -167,10 +170,11 @@ class ModuleHandler():
                                                     name) * 1000000
             mod_details["instance"] = l_inst
         except Exception as ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to load module " + name + " (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to load module: %s" % str(name),
+                              str(ex))
             return None
 
-        syslog.syslog(syslog.LOG_INFO, "module loaded: " + str(mod_details))
+        self.database.log("info", "module loaded: %s" % str(name))
         return mod_details
 

@@ -1,11 +1,12 @@
 """ Implement FuzzLabs daemon """
 
 import os
+import sys
 import time
 import signal
-import syslog
 
 from classes import ModuleHandler as mh
+from classes import DatabaseHandler as dh
 
 class FuzzlabsDaemon():
     """
@@ -28,16 +29,16 @@ class FuzzlabsDaemon():
         @param config:   The complete configuration as a dictionary
         """
 
-        self.root = root
-        self.config = config
-        self.modules = None
-        self.stdin_path = self.config['daemon']['stdin']
-        self.stdout_path = self.config['daemon']['stdout']
-        self.stderr_path = self.config['daemon']['stderr']
-        self.pidfile_path = self.config['daemon']['pidfile']
+        self.root            = root
+        self.config          = config
+        self.modules         = None
+        self.stdin_path      = self.config['daemon']['stdin']
+        self.stdout_path     = self.config['daemon']['stdout']
+        self.stderr_path     = self.config['daemon']['stderr']
+        self.pidfile_path    = self.config['daemon']['pidfile']
         self.pidfile_timeout = self.config['daemon']['pidfile_timeout']
-        self.running = True
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
+        self.running         = True
+        self.database        = dh.DatabaseHandler(self.config, self.root)
 
     # -------------------------------------------------------------------------
     #
@@ -48,7 +49,7 @@ class FuzzlabsDaemon():
         Handle SIGTERM signal and abort execution.
         """
 
-        syslog.syslog(syslog.LOG_INFO, 'DCNWS FuzzLabs is stopping')
+        self.database.log("info", "DCNWS FuzzLabs is stopping")
         self.running = False
 
     # -------------------------------------------------------------------------
@@ -60,21 +61,21 @@ class FuzzlabsDaemon():
         Main function of FuzzLabs.
         """
 
-        syslog.syslog(syslog.LOG_INFO, 'DCNWS FuzzLabs is initializing')
+        self.database.log("info", "DCNWS FuzzLabs is initializing")
 
         try:
             os.setsid()
             os.umask(077)
             signal.signal(signal.SIGTERM, self.__sigterm_handler) 
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, 
-                          'failed to start daemon (%s)' % str(ex))
+            self.database.log("error", "failed to start daemon", str(ex))
+            sys.exit(1)
 
         try:
             self.modules = mh.ModuleHandler(self.root, self.config)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, 
-                          'failed to load modules (%s)' % str(ex))
+            self.database.log("error", "failed to load modules", str(ex))
+            sys.exit(1)
 
         while self.running:
             time.sleep(1)
@@ -82,7 +83,6 @@ class FuzzlabsDaemon():
         try:
             self.modules.unload_modules()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          'failed to unload modules %s' % str(ex))
-            raise ex
+            self.database.log("error", "failed to unload modules", str(ex))
+            raise Exception(ex)
 

@@ -1,9 +1,10 @@
 import os
 import time
 import json
-import syslog
 import socket
 import select
+
+from classes import DatabaseHandler as dh
 
 # =======================================================================================
 #
@@ -15,7 +16,7 @@ class agent():
     #
     # -----------------------------------------------------------------------------------
 
-    def __init__(self, config, session_id, settings=None):
+    def __init__(self, root, config, session_id, settings=None):
         """
         Initialize the module.
 
@@ -28,6 +29,7 @@ class agent():
                              the agent
         """
 
+        self.root             = root
         self.config           = config
         self.session_id       = session_id
         self.address          = None
@@ -35,27 +37,28 @@ class agent():
         self.command          = None
         self.conn_retry       = 5
         self.conn_retry_delay = 20
-
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
+        self.database         = dh.DatabaseHandler(self.config, self.root)
 
         if settings != None:
             if "address" in settings:
                 self.address = settings["address"]
             else:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": agent address is not set")
-
+                self.database.log("error",
+                                  "agent address is not set for job %s" %\
+                                  self.session_id)
             if "port" in settings:
                 self.port = settings["port"]
             else:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": agent port is not set")
+                self.database.log("error",
+                                  "agent port is not set for job %s" %\
+                                  self.session_id)
 
             if "command" in settings:
                 self.command = settings["command"]
             else:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": command to execute not set for agent")
+                self.database.log("error",
+                                  "agent command is not set for job %s" %\
+                                  self.session_id)
 
             if "conn_retry" in settings:
                 self.conn_retry = settings["conn_retry"]
@@ -66,11 +69,12 @@ class agent():
         self.sock = None
         self.running = True
 
-        syslog.syslog(syslog.LOG_INFO, self.session_id +\
-                              ": agent connection set: %s:%d:%s" %
-                              (self.address,
-                              self.port,
-                              self.command))
+        self.database.log("info",
+                          "agent connection set for job %s: %s:%d:%s" %\
+                          (self.session_id,
+                          self.address,
+                          self.port,
+                          self.command))
 
     # -----------------------------------------------------------------------------------
     #
@@ -121,12 +125,14 @@ class agent():
             if retry == self.conn_retry: return False
             time.sleep(self.conn_retry_delay)
             retry += 1
-            syslog.syslog(syslog.LOG_ERR, self.session_id +
-                          ": agent failed to start command, retrying ...")
+            self.database.log("error",
+                              "agent failed to start command for job %s, retrying ..." %\
+                              self.session_id)
             c_stat = self.do_start()
 
-        syslog.syslog(syslog.LOG_INFO, self.session_id +
-                      ": process %s started successfully" % self.command)
+        self.database.log("error",
+                          "process %s started successfully for job %s" %\
+                          (self.command, self.session_id))
 
         time.sleep(3)
         if not self.check_alive(): return False
@@ -144,8 +150,9 @@ class agent():
         data = self.check_response()
         if data == None or "command" not in data or \
            data["command"] != "status" or "data" not in data:
-            syslog.syslog(syslog.LOG_ERR, "unexpected response from agent: %s" %
-                                          str(data))
+            self.database.log("error",
+                              "unexpected response from agent for job %s: %s" %\
+                              (self.session_id, str(data)))
             return None
         return(data["data"])
 
@@ -199,14 +206,16 @@ class agent():
             if reconn == self.conn_retry: return False
             time.sleep(self.conn_retry_delay)
             reconn += 1
-            syslog.syslog(syslog.LOG_ERR, self.session_id +
-                          ": failed to estabilish connection to the agent, retrying...")
+            self.database.log("error",
+                              "connection failed to the agent for job %s, retrying..." %\
+                              self.session_id)
             c_stat = self.do_connect()
 
         if self.check_alive(): return True
 
-        syslog.syslog(syslog.LOG_ERR, self.session_id +
-                      ": failed to estabilish connection to the agent")
+        self.database.log("error",
+                          "failed to estabilish connection to the agent for job %s" %\
+                          self.session_id)
         return False
 
     # -----------------------------------------------------------------------------------

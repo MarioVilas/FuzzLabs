@@ -8,11 +8,12 @@ import json
 import time
 import Queue
 import shutil
-import syslog
 import threading
 import multiprocessing
 from threading import Thread
 from sulley import *
+
+from classes import DatabaseHandler as dh
 
 # =============================================================================
 #
@@ -55,7 +56,7 @@ class jobworker():
         self.job_id            = job_id
         self.job_status        = {}
 
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
+        self.database          = dh.DatabaseHandler(self.config, self.root)
 
     # -------------------------------------------------------------------------
     # 
@@ -67,8 +68,9 @@ class jobworker():
         is not used.
         """
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "w[%s] shutdown request received" % self.id)
+        self.database.log("info",
+                          "worker %s received shutdown request received" %\
+                          self.id)
         self.core.terminate()
 
     # -------------------------------------------------------------------------
@@ -121,6 +123,22 @@ class jobworker():
     #
     # -------------------------------------------------------------------------
 
+    def q_handle_job_stop(self, cmd):
+        """
+        Stop the job as requested by the parent.
+
+        @type  cmd:      Dictionary
+        @param cmd:      The job stop message as a dictionary
+        """
+
+        if not self.running: return
+        if cmd["data"] == self.job_id:
+            self.core.terminate()
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
     def handle(self, cmd):
         """
         Handle the received message. The handler function is dynamically
@@ -136,9 +154,10 @@ class jobworker():
             if not self.core: return
             getattr(self, 'q_handle_' + cmd["command"], None)(cmd)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s]: failed to execute queue handler '%s' (%s)" % 
-                          (self.id, cmd["command"], str(ex)))
+            self.database.log("error",
+                              "worker %s failed to execute queue handler '%s'" %\
+                              (self.id, cmd["command"]), 
+                              str(ex))
 
     # -------------------------------------------------------------------------
     #
@@ -201,7 +220,7 @@ class jobworker():
         except Exception, ex:
             pass
 
-        syslog.syslog(syslog.LOG_INFO, "w[%s] terminated" % self.id)
+        self.database.log("info", "w[%s] terminated" % self.id)
 
     # -------------------------------------------------------------------------
     #
@@ -228,9 +247,10 @@ class jobworker():
         try:
             f_name = getattr(descriptor, f_name)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to load pre_send function for job %s (%s)" %
-                          (self.id, self.job_id, str(ex)))
+            self.database.log("error",
+                              "worker %s failed to load pre_send function for job %s" %\
+                              (self.id, self.job_id), 
+                              str(ex))
             f_name = None
         return f_name
 
@@ -249,9 +269,10 @@ class jobworker():
         try:
             self.__import_request_file()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to load descriptor for job %s (%s)" %
-                          (self.id, self.job_id, str(ex)))
+            self.database.log("error",
+                              "worker %s failed to load descriptor for job %s" %\
+                              (self.id, self.job_id), 
+                              str(ex))
             return False
 
         settings   = self.job_data['session']
@@ -274,14 +295,15 @@ class jobworker():
             if agent and agent != {}:
                 rc = self.core.add_agent(agent)
                 if (rc == False):
-                    syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to set up agent for job %s" %\
-                          (self.id, self.job_id))
+                    self.database.log("error",
+                                      "worker %s failed to set up agent for job %s" %\
+                                      (self.id, self.job_id))
                     return False
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to initialize job %s (%s)" %\
-                          (self.id, self.job_id, str(ex)))
+            self.database.log("error",
+                              "worker %s failed to initialize job %s" %\
+                              (self.id, self.job_id), 
+                              str(ex))
             return False
 
         pre_send = self.load_callbacks(pre_send)
@@ -300,9 +322,10 @@ class jobworker():
                 self.core.connect(n_c, n_n, callback)
 
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to process graph for job %s (%s)" %
-                          (self.id, self.job_id, str(ex)))
+            self.database.log("error",
+                              "worker %s failed to process graph for job %s" %\
+                              (self.id, self.job_id), 
+                              str(ex))
             return False
 
         return True
@@ -316,14 +339,16 @@ class jobworker():
         Start the fuzzing.
         """
 
+        if not self.core: return
         try:
-            if not self.core: return
             self.core.fuzz()
             self.running = False
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "w[%s] failed to execute job %s (%s)" %
-                          (self.id, self.job_id, str(ex)))
+            self.database.log("error",
+                              "worker %s failed to execute job %s" %\
+                              (self.id, self.job_id), 
+                              str(ex))
+            self.running = False
             return
 
         try:
@@ -331,8 +356,9 @@ class jobworker():
         except Exception, ex:
             pass
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "w[%s]: job %s finished" % (self.id, self.job_id))
+        self.database.log("info",
+                          "worker %s finished job %s" %\
+                          (self.id, self.job_id))
 
     # -------------------------------------------------------------------------
     # 
@@ -357,13 +383,15 @@ class jobworker():
         """
 
         self.running = True
-        syslog.syslog(syslog.LOG_INFO, "worker started: %s, pid: %d" % 
+        self.database.log("info",
+                          "worker %s started, pid: %d" %\
                           (self.id, os.getpid()))
         l = threading.Thread(target=self.listener)
         l.start()
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "worker %s executing job %s" % (self.id, self.job_id))
+        self.database.log("info",
+                          "worker %s executing job %s" %\
+                          (self.id, self.job_id))
 
         if self.setup_core(): self.start_fuzzing()
 

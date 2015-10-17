@@ -11,7 +11,6 @@ import time
 import Queue
 import shutil
 import random
-import syslog
 import signal
 import inspect
 import hashlib
@@ -63,8 +62,6 @@ class jobshandler(threading.Thread):
         self.database          = dh.DatabaseHandler(self.config, self.root)
         self.workers           = []
 
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
-
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
@@ -106,7 +103,8 @@ class jobshandler(threading.Thread):
             self.delete_worker(worker["id"])
 
         self.workers = []
-        syslog.syslog(syslog.LOG_INFO, "all workers stopped")
+        self.database.log("info", "all workers stopped")
+
         """
 
         self.running = False
@@ -121,9 +119,9 @@ class jobshandler(threading.Thread):
         try:
             job_data = json.load(open(job_file, 'r'))
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to load job data for job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error",
+                              "failed to load job data for job %s" % job_id,
+                              str(ex))
             return False
 
         job_data["job_id"]      = hashlib.md5(json.dumps(job_data)).hexdigest()
@@ -145,15 +143,15 @@ class jobshandler(threading.Thread):
         try:
             shutil.move(job_file, job_lock)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to lock job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error", 
+                              "failed to lock job %s" % job_id,
+                              str(ex))
             return False
 
         if not self.database.insertJob(job_data):
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to save job data for job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error",
+                              "failed to save job data for job %s" % job_id,
+                              str(ex))
             return False
 
         return True
@@ -199,9 +197,9 @@ class jobshandler(threading.Thread):
         for worker in self.workers:
             if worker_id == worker["id"]:
                 if self.config["general"]["debug"] > 4:
-                    syslog.syslog(syslog.LOG_INFO,
-                                  "sending to worker %s, cmd: %s, data: %s" %\
-                                  (worker["id"], command, str(data)))
+                    self.database.log("debug",
+                                      "sending to worker %s, cmd: %s, data: %s"
+                                      (worker["id"], command, str(data)))
 
                 worker["c_queue"].put({
                     "from": self.id,
@@ -232,7 +230,7 @@ class jobshandler(threading.Thread):
         sent by a worker waiting to be processed.
         """
 
-        syslog.syslog(syslog.LOG_INFO, "queue listener started")
+        self.database.log("info", "queue listener started")
         while self.running:
             for worker in self.workers:
                 cmd = None
@@ -245,10 +243,10 @@ class jobshandler(threading.Thread):
                 try:
                     getattr(self, 'q_handle_' + cmd["command"], None)(cmd)
                 except Exception, ex:
-                    syslog.syslog(syslog.LOG_ERR,
-                                  "failed to execute queue handler '%s' (%s)" %\
-                                  (cmd["command"], str(ex)))
-
+                    self.database.log("error",
+                                      "failed to execute queue handler '%s'" %\
+                                      cmd["command"],
+                                      str(ex))
             time.sleep(1)
 
     # -------------------------------------------------------------------------
@@ -286,8 +284,9 @@ class jobshandler(threading.Thread):
         try:
             w_remove["process"].join()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, "failed to stop worker %s (%s)" %
-                          (worker, str(ex)))
+            self.database.log("error",
+                              "failed to stop worker %s" % str(worker),
+                              str(ex))
 
     # -------------------------------------------------------------------------
     #
@@ -307,8 +306,7 @@ class jobshandler(threading.Thread):
         worker = {}
         worker["id"]       = self.generate_id()
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "initializing worker %s ..." % worker["id"])
+        self.database.log("info", "initializing worker: %s" % worker["id"])
 
         worker["job_id"]   = job_id
         worker["c_queue"]  = multiprocessing.Queue()
@@ -319,13 +317,13 @@ class jobshandler(threading.Thread):
         try:
             job_data = self.database.loadJob(job_id)
             if not job_data:
-                syslog.syslog(syslog.LOG_ERR,
-                              "failed to load data for job %s" %\
-                              job_id)
+                self.database.log("error",
+                                  "failed to load data for job %s" % job_id,
+                                  str(ex))
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "error loading data for job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error",
+                              "error loading data for job %s" % job_id,
+                              str(ex))
             return False
 
         try:
@@ -338,18 +336,19 @@ class jobshandler(threading.Thread):
                                            self.config,
                                            job_data)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to initialize worker for job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error",
+                              "failed to initialize worker for job %s" %\
+                              job_id,
+                              str(ex))
             return False
 
         try:
             worker["process"] = Process(target=worker["instance"].run)
             worker["process"].start()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to start job %s (%s)" %\
-                          (job_id, str(ex)))
+            self.database.log("error",
+                              "failed to start job %s" % job_id,
+                              str(ex))
             return False
 
         self.workers.append(worker)
@@ -388,9 +387,9 @@ class jobshandler(threading.Thread):
         @param data:     The ID of the job to be deleted
         """
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "job delete request received for job %s" %\
-                      str(data))
+        self.database.log("info",
+                          "job delete request received for job %s" %\
+                          str(data))
 
         self.broadcast("job_delete", data)
 
@@ -400,15 +399,14 @@ class jobshandler(threading.Thread):
 
     def e_handle_job_restart(self, sender, data):
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "job restart request received for job %s" %\
-                      str(data))
+        self.database.log("info",
+                          "job restart request received for job %s" %\
+                          str(data))
 
         if not self.database.deleteSession(data):
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to delete session data for job %s" +\
-                          ", cannot restart job" %\
-                          data)
+            self.database.log("error",
+                              "failed to delete session for job: %s" %\
+                              str(data))
             return False
 
         self.e_handle_job_start(sender, data)
@@ -419,9 +417,9 @@ class jobshandler(threading.Thread):
 
     def e_handle_job_stop(self, sender, data):
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "job stop request received for job %s" %\
-                      str(data))
+        self.database.log("info",
+                          "job stop request received for job %s" %\
+                          str(data))
 
         self.broadcast("job_stop", data)
 
@@ -440,9 +438,9 @@ class jobshandler(threading.Thread):
         @param data:     The ID of the job to be paused
         """
 
-        syslog.syslog(syslog.LOG_INFO,
-                      "job pause request received for job %s" %\
-                      str(data))
+        self.database.log("info",
+                          "job pause request received for job %s" %\
+                          str(data))
 
         self.broadcast("job_pause", data)
 
@@ -467,14 +465,12 @@ class jobshandler(threading.Thread):
                 new = False
 
         if new:
-            syslog.syslog(syslog.LOG_INFO,
-                          "starting job %s" %\
-                          str(data))
+            self.database.log("info",
+                              "starting job %s" % str(data))
             self.start_worker(data)
         else:
-            syslog.syslog(syslog.LOG_INFO,
-                          "resuming job %s" %\
-                          str(data))
+            self.database.log("info",
+                              "resuming job %s" % str(data))
             self.broadcast("job_resume", data)
         return True
 
@@ -488,7 +484,7 @@ class jobshandler(threading.Thread):
         """
 
         self.running = True
-        syslog.syslog(syslog.LOG_INFO, "job handler started")
+        self.database.log("info", "job handler started")
 
         l = threading.Thread(target=self.listener)
         l.start()
@@ -513,11 +509,11 @@ class jobshandler(threading.Thread):
             try:
                 self.check_jobs()
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              "failed to process jobs (%s)" %\
-                              str(ex))
+                self.database.log("error", 
+                                  "failed to process jobs",
+                                  str(ex))
 
             time.sleep(2)
 
-        syslog.syslog(syslog.LOG_INFO, "job handler stopped")
+        self.database.log("info", "job handler stopped")
 

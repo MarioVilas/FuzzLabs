@@ -31,7 +31,7 @@
     "agent": {
         "address": "127.0.0.1",
         "port": 27000,
-        "command": "/home/keyman/vulnerable",
+        "command": "/home/x/vulnerable",
         "conn_retry": 5,
         "conn_retry_delay": 60
     }

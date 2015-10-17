@@ -2,7 +2,6 @@ import re
 import os
 import json
 import time
-import syslog
 import psutil
 import threading
 from functools import wraps
@@ -24,8 +23,7 @@ fuzzlabs_root = None
 # -----------------------------------------------------------------------------
 
 whitelist = {}
-whitelist["id"]       = '^[0-9]*$'
-whitelist["job_id"]   = '^[a-f0-9]{32}$'
+whitelist["id"]       = '^[a-f0-9]{32,64}$'
 whitelist["datetime"] = '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2} [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}$'
 
 # =============================================================================
@@ -198,19 +196,20 @@ class webserver(threading.Thread):
         threading.Thread.__init__(self)
         global database
         global fuzzlabs_root
-        self.root = fuzzlabs_root = root
-        self.config = config
-        self.setDaemon(True)
+        self.root    = fuzzlabs_root = root
+        self.config  = config
         self.running = True
-        self.server = None
+        self.server  = None
+        self.setDaemon(True)
 
         database = db.DatabaseHandler(self.config, 
                                       self.root)
 
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
-
         if self.config == None:
-            syslog.syslog(syslog.LOG_ERR, 'invalid configuration')
+            database.log("error",
+                         "invalid configuration" %\
+                         self.session_id,
+                         str(ex))
             self.running = False
         else:
             self.setDaemon(True)
@@ -229,7 +228,9 @@ class webserver(threading.Thread):
 
     def stop(self):
         self.running = False
-        syslog.syslog(syslog.LOG_INFO, 'webserver stopped')
+        global database
+        database.log("info",
+                     "webserver module stopped")
 
     # -------------------------------------------------------------------------
     #
@@ -254,9 +255,9 @@ class webserver(threading.Thread):
         try:
             jobs = database.loadJobs()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to retrieve jobs from database: %s" %\
-                          str(ex))
+            database.log("error",
+                         "webserver failed to retrieve jobs from database",
+                         str(ex))
             r = Response("error", "jobs").get()
             return r
 
@@ -267,15 +268,16 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/jobs/<job_id>/stop", methods=['GET'])
+    @app.route("/jobs/<id>/stop", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_stop(job_id):
-        syslog.syslog(syslog.LOG_INFO,
-                      "stop request received for job: %s" % job_id)
+    def r_jobs_stop(id):
+        global database
+        database.log("info",
+                     "webserver received stop request for job %s" % id)
         dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_STOP,
                         sender="WEBSERVER",
-                        data=job_id)
+                        data=id)
         r = Response("success", "stopped").get()
         return r
 
@@ -283,21 +285,24 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/jobs/<job_id>/delete", methods=['GET'])
+    @app.route("/jobs/<id>/delete", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_delete(job_id):
-        syslog.syslog(syslog.LOG_INFO,
-                      "delete request received for job: %s" % job_id)
+    def r_jobs_delete(id):
+        global database
+        database.log("info",
+                     "webserver received delete request for job %s" % id)
         dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_DELETE,
                         sender="WEBSERVER",
-                        data=job_id)
+                        data=id)
         try:
-            database.deleteJob(job_id)
+            database.deleteJob(id)
         except Exception, ex:
-            # TODO
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to delete job %s: %s" % (job_id, str(ex)))
+            database.log("error",
+                         "failed to delete job: %s" % id,
+                         str(ex))
+            r = Response("error", "failed to delete job").get()
+            return r
         r = Response("success", "deleted").get()
         return r
 
@@ -305,15 +310,16 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/jobs/<job_id>/restart", methods=['GET'])
+    @app.route("/jobs/<id>/restart", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_restart(job_id):
-        syslog.syslog(syslog.LOG_INFO,
-                      "restart request received for job: %s" % job_id)
+    def r_jobs_restart(id):
+        global database
+        database.log("info",
+                     "webserver received restart request for job %s" % id)
         dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_RESTART,
                         sender="WEBSERVER",
-                        data=job_id)
+                        data=id)
         r = Response("success", "restarted").get()
         return r
 
@@ -321,15 +327,16 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/jobs/<job_id>/pause", methods=['GET'])
+    @app.route("/jobs/<id>/pause", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_pause(job_id):
-        syslog.syslog(syslog.LOG_INFO,
-                      "pause request received for job: %s" % job_id)
+    def r_jobs_pause(id):
+        global database
+        database.log("info",
+                     "webserver received pause request for job %s" % id)
         dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_PAUSE, 
                         sender="WEBSERVER", 
-                        data=job_id)
+                        data=id)
         r = Response("success", "paused").get()
         return r
 
@@ -337,18 +344,16 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/jobs/<job_id>/start", methods=['GET'])
+    @app.route("/jobs/<id>/start", methods=['GET'])
     @apiheaders
     @validate
-    def r_jobs_start(job_id):
-
-        syslog.syslog(syslog.LOG_INFO,
-                      "start request received for job: %s" % job_id)
-
+    def r_jobs_start(id):
+        global database
+        database.log("info",
+                     "webserver received start request for job %s" % id)
         dispatcher.send(signal=ev.Event.EVENT__REQ_JOB_START,
                         sender="WEBSERVER",
-                        data=job_id)
-
+                        data=id)
         r = Response("success", "started").get()
         return r
 
@@ -365,8 +370,9 @@ class webserver(threading.Thread):
         try:
             issues = database.loadIssues()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to retrieve issues: %s" % str(ex))
+            database.log("error",
+                         "webserver failed to retrieve issues",
+                         str(ex))
             r = Response("error", "issues").get()
             return r
         r = Response("success", "issues", issues).get()
@@ -385,8 +391,9 @@ class webserver(threading.Thread):
         try:
             issue = database.loadIssue(id)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to retrieve issue: %s" % str(ex))
+            database.log("error",
+                         "webserver failed to retrieve issue",
+                         str(ex))
             r = Response("error", "issues").get()
             return r
         r = Response("success", "issue", database.loadIssue(id)).get()
@@ -401,8 +408,8 @@ class webserver(threading.Thread):
     @validate
     def r_delete_issue_by_id(id):
         global database
-        syslog.syslog(syslog.LOG_INFO,
-                      "delete request received for issue: %s" % id)
+        database.log("info",
+                     "webserver received delete request for issue: %s" % id)
         try:
             database.deleteIssue(id)
         except Exception, ex:
@@ -475,7 +482,8 @@ class webserver(threading.Thread):
     # -------------------------------------------------------------------------
 
     def run(self):
-        syslog.syslog(syslog.LOG_INFO, 'webserver thread is accepting data')
+        global database
+        database.log("info", "webserver module is accepting data")
         self.app.run(host=self.config['api']['listen_address'],
                      port=self.config['api']['listen_port'],
                      debug=False)

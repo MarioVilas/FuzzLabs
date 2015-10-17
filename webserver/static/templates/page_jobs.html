@@ -68,6 +68,7 @@
                     <div ng-if="job.status == 1" id="job_action"> <!-- RUNNING -->
                         <button class="job_action" title="Pause Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="pause_job">&#9646;&#9646;</button>
                         <button class="job_action" title="Stop Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="stop_job">&#9726;</button>
+                        <button class="job_action" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
                     </div>
                     <div ng-if="job.status == 3" id="job_action"> <!-- FINISHED -->
                         <button class="job_action" title="Restart Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="restart_job">&#x27F3;</button>

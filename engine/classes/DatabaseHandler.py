@@ -1,6 +1,8 @@
 import json
 import time
 import hashlib
+import inspect
+import syslog
 from pymongo import MongoClient
 
 class DatabaseHandler:
@@ -18,6 +20,7 @@ class DatabaseHandler:
         self.root     = root
         self.dbclient = MongoClient(self.config['general']['database'])
         self.database = self.dbclient.engine
+        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
 
     # -------------------------------------------------------------------------
     #
@@ -28,6 +31,9 @@ class DatabaseHandler:
         try:
             self.database.sessions.insert(data)
         except Exception, ex:
+            self.log("critical",
+                     "database saveSession() failed",
+                     str(ex))
 	    return False
         return True
 
@@ -37,10 +43,16 @@ class DatabaseHandler:
 
     def loadSession(self, job_id = None):
         if not job_id: return False
-        r = self.database.sessions.find({"job_id": job_id})
-        for session in r:
-            return session
-        return None
+        try:
+            r = self.database.sessions.find({"job_id": job_id})
+            for session in r:
+                return session
+            return None
+        except Exception, ex:
+            self.log("critical",
+                     "database loadSession() failed",
+                     str(ex))
+            return None
 
     # -------------------------------------------------------------------------
     #
@@ -51,6 +63,9 @@ class DatabaseHandler:
         try:
             self.database.sessions.update({"job_id": job_id}, data)
         except Exception, ex:
+            self.log("critical",
+                     "database updateSession() failed",
+                     str(ex))
             return False
         return True
 
@@ -63,6 +78,9 @@ class DatabaseHandler:
         try:
             r = self.database.sessions.remove({"job_id": job_id})
         except Exception, ex:
+            self.log("critical",
+                     "database deleteSession() failed",
+                     str(ex))
             return False
         return True
 
@@ -86,6 +104,9 @@ class DatabaseHandler:
                 }
             })
         except Exception, ex:
+            self.log("critical",
+                     "database updateJob() failed",
+                     str(ex))
             return False
         return True
 
@@ -99,11 +120,17 @@ class DatabaseHandler:
         """
 
         jobs_list = []
-        r = self.database.jobs.find()
-        for job in r:
-            job.pop("_id", None)
-            jobs_list.append(job)
-        return jobs_list
+        try:
+            r = self.database.jobs.find()
+            for job in r:
+                job.pop("_id", None)
+                jobs_list.append(job)
+            return jobs_list
+        except Exception, ex:
+            self.log("critical",
+                     "database loadJobs() failed",
+                     str(ex))
+            return jobs_list
 
     # -------------------------------------------------------------------------
     #
@@ -114,11 +141,17 @@ class DatabaseHandler:
         Returns a job from the database.
         """
 
-        r = self.database.jobs.find({"job_id": job_id})
-        for job in r:
-            job.pop("_id", None)
-            return job
-        return None
+        try:
+            r = self.database.jobs.find({"job_id": job_id})
+            for job in r:
+                job.pop("_id", None)
+                return job
+            return None
+        except Exception, ex:
+            self.log("critical",
+                     "database loadJob() failed",
+                     str(ex))
+            return None
 
     # -------------------------------------------------------------------------
     #
@@ -133,6 +166,9 @@ class DatabaseHandler:
         try:
             self.database.jobs.insert(data)
         except Exception, ex:
+            self.log("critical",
+                     "database insertJob() failed",
+                     str(ex))
             return False
         return True
 
@@ -145,8 +181,11 @@ class DatabaseHandler:
         try:
             r = self.database.jobs.remove({"job_id": job_id})
         except Exception, ex:
+            self.log("critical",
+                     "database deleteJob() failed",
+                     str(ex))
             return False
-        return True
+        return self.deleteSession(job_id)
 
     # -------------------------------------------------------------------------
     #
@@ -172,6 +211,9 @@ class DatabaseHandler:
                 "payload": data.get("request")
             })
         except Exception, ex:
+            self.log("critical",
+                     "database saveIssue() failed",
+                     str(ex))
             return False
         return True
 
@@ -186,17 +228,23 @@ class DatabaseHandler:
 
         issue_list = []
 
-        r = self.database.issues.find()
-        for issue in r:
-            issue.pop("_id", None)
-            i_data = {
-                     "id":     issue.id,
-                     "job_id": issue.job_id,
-                     "time":   issue.time
-                     }
+        try:
+            r = self.database.issues.find()
+            for issue in r:
+                i_data = {
+                     "id":     issue["id"],
+                     "job_id": issue["job_id"],
+                     "time":   issue["time"]
+                }
+                issue.pop("_id", None)
 
-            issue_list.append(i_data)
-        return issue_list
+                issue_list.append(i_data)
+            return issue_list
+        except Exception, ex:
+            self.log("critical",
+                     "database loadIssues() failed",
+                     str(ex))
+            return issue_list
 
     # -------------------------------------------------------------------------
     #
@@ -207,11 +255,17 @@ class DatabaseHandler:
         Returns full details of an issues.
         """
 
-        r = self.database.issues.find({"id": id})
-        for issue in r:
-            issue.pop("_id", None)
-            return issue
-        return None
+        try:
+            r = self.database.issues.find({"id": id})
+            for issue in r:
+                issue.pop("_id", None)
+                return issue
+            return None
+        except Exception, ex:
+            self.log("critical",
+                     "database loadIssue() failed",
+                     str(ex))
+            return None
 
     # -------------------------------------------------------------------------
     #
@@ -225,6 +279,49 @@ class DatabaseHandler:
         try:
             self.database.issues.remove({"id": id})
         except Exception, ex:
+            self.log("critical",
+                     "database deleteIssue() failed",
+                     str(ex))
+            return False
+        return True
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def log(self, severity, message = None, errdetail = None):
+        if not message:   return False
+        if not errdetail: errdetail = ""
+
+        if severity != "debug" and severity != "info" and \
+           severity != "warning" and severity != "error" and \
+           severity != "critical":
+            return False
+
+        caller = inspect.stack()[:2][1]
+
+        try:
+            logmsg = {
+                "time":      time.time(),
+                "severity":  severity,
+                "message":   message,
+            }
+
+            if severity == "debug" or severity == "error" or\
+               severity == "critical":
+                logmsg["source"] = {
+                    "method": str(caller[3]),
+                    "line":   str(caller[2]),
+                    "file":   str(caller[1])
+                }
+                logmsg["exception"] = str(errdetail)
+
+            r = self.database.logs.insert(logmsg)
+
+        except Exception, ex:
+            syslog.syslog(syslog.LOG_ERR,
+                          "CRITICAL: database log() failed (%s)" %\
+                          str(ex))
             return False
         return True
 

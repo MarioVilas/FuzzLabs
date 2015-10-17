@@ -9,7 +9,6 @@ import md5
 import time
 import json
 import base64
-import syslog
 import socket
 import select
 import threading
@@ -73,8 +72,6 @@ class session(pgraph.graph):
 
     def __init__(self, config, root, session_id, settings, transport, conditions):
         pgraph.graph.__init__(self)
-
-        syslog.openlog(logoption=syslog.LOG_PID, facility=syslog.LOG_DAEMON)
 
         self.session_id          = session_id
         self.root_dir            = root
@@ -299,8 +296,10 @@ class session(pgraph.graph):
                                     self.total_mutant_index,
                                     self.total_num_mutations)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                          ": failed to save job status (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to save status for job %s" %\
+                              self.session_id,
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -315,8 +314,10 @@ class session(pgraph.graph):
         try:
             is_update = self.database.loadSession(self.session_id)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                          ": failed to check if session data saved (%s)" % str(ex))
+            self.database.log("error",
+                              "failed check session data for job %s" %\
+                              self.session_id,
+                              str(ex))
             return False
 
         if is_update:
@@ -335,8 +336,11 @@ class session(pgraph.graph):
                     }
                 })
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": failed to update session data (%s)" % str(ex))
+                self.database.log("error",
+                                  "failed to update session data for job %s" %\
+                                  self.session_id,
+                                  str(ex))
+
         else:
             try:
                 self.database.saveSession({
@@ -353,8 +357,10 @@ class session(pgraph.graph):
                     "pause_flag":          self.pause_flag
                 })
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": failed to save session data (%s)" % str(ex))
+                self.database.log("error",
+                                  "failed to save session data for job %s" %\
+                                  self.session_id,
+                                  str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -369,8 +375,10 @@ class session(pgraph.graph):
         try:
             session_data = self.database.loadSession(self.session_id)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                          ": failed to load session data (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to load session data for job %s" %\
+                              self.session_id,
+                              str(ex))
 
         if not session_data: return
 
@@ -405,13 +413,17 @@ class session(pgraph.graph):
         if not this_node:
             # we can't fuzz if we don't have at least one target and one request.
             if not self.transport_media.media_target():
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": no target specified for session")
+                self.database.log("error",
+                                  "no target specified for job %s" %\
+                                  self.session_id,
+                                  str(ex))
                 return
 
             if not self.edges_from(self.root.id):
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": no request specified for session")
+                self.database.log("error",
+                                  "no request specified for job %s" %\
+                                  self.session_id,
+                                  str(ex))
                 return
 
             this_node = self.root
@@ -425,11 +437,15 @@ class session(pgraph.graph):
 
         if self.agent == None and self.agent_settings != None:
             try:
-                self.agent = agent(self.config, self.session_id, self.agent_settings)
+                self.agent = agent(self.root_dir, self.config, self.session_id,
+                                   self.agent_settings)
                 self.agent.connect()
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": failed to establish agent connection (%s)" % str(ex))
+                self.database.log("error",
+                                  "failed to establish agent connection for job %s" %\
+                                  self.session_id,
+                                  str(ex))
+
                 self.finished_flag = True
                 self.stop_flag = True
                 self.save_status()
@@ -439,15 +455,19 @@ class session(pgraph.graph):
             try:
                 self.agent.start()
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": agent failed to execute command (%s)" % str(ex))
+                self.database.log("error",
+                                  "agent failed to execute command for job %s" %\
+                                  self.session_id,
+                                  str(ex))
+
                 self.finished_flag = True
                 self.stop_flag = True
                 self.save_status()
                 return
 
-            syslog.syslog(syslog.LOG_INFO, self.session_id +\
-                          ": process started, waiting 3 seconds...")
+            self.database.log("info", 
+                              "process started for job %s - waiting 3 seconds" %\
+                              self.session_id)
             time.sleep(3)
 
         # step through every edge from the current node.
@@ -471,10 +491,10 @@ class session(pgraph.graph):
             current_path += " -> %s" % self.fuzz_node.name
 
             if self.config['general']['debug'] > 1:
-                syslog.syslog(syslog.LOG_INFO, self.session_id +\
-                              ": fuzz path: %s, fuzzed %d of %d total cases" %\
-                              (current_path, self.total_mutant_index, 
-                              self.total_num_mutations))
+                self.database.log("debug",
+                                  "%s: fuzz path: %s, fuzzed %d of %d total cases" %\
+                                  (self.session_id, current_path, self.total_mutant_index, 
+                                  self.total_num_mutations))
 
             done_with_fuzz_node = False
 
@@ -491,8 +511,9 @@ class session(pgraph.graph):
 
                 if not self.fuzz_node.mutate():
                     if self.config['general']['debug'] > 0:
-                        syslog.syslog(syslog.LOG_INFO, self.session_id +\
-                                      ": all possible mutations exhausted")
+                        self.database.log("info",
+                                          "all possible mutations exhausted for job %s" %\
+                                          self.session_id)
                     done_with_fuzz_node = True
                     continue
 
@@ -504,8 +525,9 @@ class session(pgraph.graph):
 
                 if self.restart_interval and self.total_mutant_index % self.restart_interval == 0:
                     if self.config['general']['debug'] > 0:
-                        syslog.syslog(syslog.LOG_WARNING,
-                                      self.session_id + ": restart interval reached")
+                        self.database.log("warning",
+                                          "restart interval reached for job %s" %\
+                                          self.session_id)
                     # TODO: this has to be updated properly...
 
                     if self.agent != None and self.agent_settings != None:
@@ -515,9 +537,10 @@ class session(pgraph.graph):
 
                 if self.total_mutant_index > self.skip:
                     if self.config['general']['debug'] > 1:
-                        syslog.syslog(syslog.LOG_INFO,
-                                      self.session_id + ": fuzzing %d / %d" %\
-                                      (self.fuzz_node.mutant_index, num_mutations))
+                        self.database.log("debug",
+                                          "%s: fuzzing %d / %d" %\
+                                          (self.session_id, self.fuzz_node.mutant_index, 
+                                          num_mutations))
 
                     # attempt to complete a fuzz transmission. keep trying until we are 
                     # successful, whenever a failure occurs, restart the target.
@@ -579,8 +602,9 @@ class session(pgraph.graph):
                     # delay in between test cases.
 
                     if self.config['general']['debug'] > 2:
-                        syslog.syslog(syslog.LOG_INFO, self.session_id +\
-                                      ": sleeping for %f seconds" % self.sleep_time)
+                        self.database.log("debug",
+                                          "sleeping for %f seconds for job %s" %\
+                                          (self.sleep_time, self.session_id))
                     time.sleep(self.sleep_time)
 
             # recursively fuzz the remainder of the nodes in the session graph.
@@ -595,7 +619,7 @@ class session(pgraph.graph):
         if self.total_mutant_index == self.total_num_mutations:
             self.finished_flag = True
             self.stop_flag = True
-            syslog.syslog(syslog.LOG_INFO, self.session_id + ": job finished")
+            self.database.log("info", "job %s finished" % self.session_id)
             if self.agent != None and self.agent_settings != None:
                 self.agent_cleanup()
 
@@ -654,9 +678,9 @@ class session(pgraph.graph):
         '''
 
         if self.config['general']['debug'] > 1:
-            syslog.syslog(syslog.LOG_INFO,
-                          self.session_id + ": transmitting [%d.%d]" %\
-                          (node.id, self.total_mutant_index))
+            self.database.log("debug",
+                              "transmitting [%d.%d] for job %s" %\
+                              (node.id, self.total_mutant_index, self.session_id))
 
         data = None
 
@@ -664,8 +688,10 @@ class session(pgraph.graph):
         try:
             data = node.render()
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          "failed to render node for transmit: %s" % str(ex))
+            self.database.log("error",
+                              "failed to render node for transmit for job %s" %\
+                              self.session_id,
+                              str(ex))
             return False
 
         # if the edge has a callback, process it. the callback has the option to render 
@@ -676,20 +702,24 @@ class session(pgraph.graph):
                 data = edge.callback(self, node, edge,
                                      self.transport_media.media_socket())
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR, 
-                              "failed to execute callback: %s" % str(ex))
+                self.database.log("error",
+                                  "failed to execute callback for job %s" %\
+                                  self.session_id,
+                                  str(ex))
                 return False
 
         self.internal_callback(data)
 
         try:
             self.transport_media.send(data)
-            if self.config['general']['debug'] > 1:
-                syslog.syslog(syslog.LOG_INFO, 
-                              self.session_id + ": packet sent: " + repr(data))
+            if self.config['general']['debug'] > 5:
+                self.database.log("debug",
+                                  "job %s sent packet: %s" %\
+                                  (self.session_id, repr(data)),
+                                  str(ex))
         except Exception, ex:
-            self.handle_crash("fail_send", "failed to send data, possible crash: %s" %\
-                              str(ex))
+            self.handle_crash("fail_send",
+                              "failed to send on socket, possible crash")
             return False
 
         # TODO: check to make sure the receive timeout is not too long...
@@ -700,9 +730,10 @@ class session(pgraph.graph):
 
         if len(self.last_recv) > 0:
             if self.config['general']['debug'] > 1:
-                syslog.syslog(syslog.LOG_INFO,
-                              self.session_id + ": received: [%d] %s" %\
-                              (len(self.last_recv), repr(self.last_recv)))
+                self.database.log("debug",
+                                  "job %s received: [%d] %s" %\
+                                  (self.session_id, len(self.last_recv),
+                                  repr(self.last_recv)))
         else:
             self.handle_crash("fail_receive",
                               "nothing received on socket, possible crash")
@@ -720,9 +751,10 @@ class session(pgraph.graph):
             try:
                 node_data = base64.b64encode(str(data))
             except Exception, ex:
-                syslog.syslog(syslog.LOG_ERR,
-                              self.session_id + ": failed to render node data when" +\
-                              " saving status (%s)" % str(ex))
+                self.database.log("error",
+                                  "job %s failed to render node data when saving status" %\
+                                  self.session_id, 
+                                  str(ex))
 
         try:
             self.previous_sent = self.current_sent
@@ -735,9 +767,10 @@ class session(pgraph.graph):
                 "request": node_data
             }
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR,
-                          self.session_id + ": failed to store session status (%s)" %\
-                          str(ex))
+            self.database.log("error",
+                              "failed to store session status for job %s" %\
+                              self.session_id,
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -759,8 +792,10 @@ class session(pgraph.graph):
         try:
             self.database.saveIssue(crash_data)
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                          ": failed to save crash data (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to save crash data for job %s" %\
+                              self.session_id,
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -822,16 +857,19 @@ class session(pgraph.graph):
             if self.agent.check_alive():
                 p_status = self.agent.status()
             else:
-                syslog.syslog(syslog.LOG_ERR,
-                              self.session_id + ": could not contact agent, " +\
-                              "crash might be a false positive")
+                self.database.log("error",
+                              "job %s could not contact agent, maybe be false positive" %\
+                              self.session_id)
 
             if p_status == "OK":
                 process_running = True
-                syslog.syslog(syslog.LOG_ERR,
-                              self.session_id + ": the process is still running")
+                self.database.log("error",
+                              "target process is still running for job %s" %\
+                              self.session_id)
 
-        syslog.syslog(syslog.LOG_ERR, self.session_id + ": " + str(message))
+        self.database.log("error",
+                          "job %s: %s" %\
+                          (self.session_id, str(message)))
 
         self.crashing_primitives[self.fuzz_node.mutant] = \
             self.crashing_primitives.get(self.fuzz_node.mutant,0) +1
@@ -931,8 +969,10 @@ class session(pgraph.graph):
 
     def restart_process(self):
         if not self.agent.start():
-            syslog.syslog(syslog.LOG_ERR,
-                          self.session_id + ": failed to restart process, pausing job.")
+            self.database.log("error",
+                              "agent failed to restart target process for job %s, pausing job" %\
+                              self.session_id,
+                              str(ex))
             self.set_pause()
             self.pause()
         return self.agent.check_alive()
@@ -956,14 +996,17 @@ class session(pgraph.graph):
 
         try:
             if not self.agent.kill():
-                syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                              ": failed to terminate remote process")
+                self.database.log("error",
+                                  "agent failed to terminate remote process for job %s" %\
+                                  self.session_id)
             self.agent.disconnect()
             self.agent = None
             self.agent_settings = None
         except Exception, ex:
-            syslog.syslog(syslog.LOG_ERR, self.session_id +\
-                          ": failed to clean up agent connection (%s)" % str(ex))
+            self.database.log("error",
+                              "failed to clean up agent connection for job %s" %\
+                              self.session_id,
+                              str(ex))
 
         self.agent = None
         self.agent_settings = None
