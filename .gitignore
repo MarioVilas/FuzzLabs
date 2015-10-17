@@ -4,3 +4,4 @@
 *.session
 *.db
 webserver/etc/ssl
+webserver/static/resource/javascript/bower
