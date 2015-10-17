@@ -367,18 +367,6 @@ class webserver(threading.Thread):
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/engine/shutdown", methods=['GET'])
-    @apiheaders
-    @validate
-    def r_engine_shutdown():
-        # TBD
-        r = Response("error", "not supported").get()
-        return r
-
-    # -------------------------------------------------------------------------
-    #
-    # -------------------------------------------------------------------------
-
     @app.route("/engine/status", methods=['GET'])
     @apiheaders
     @validate
@@ -434,6 +422,18 @@ class webserver(threading.Thread):
         global database
         r = Response("success", "logs",
                      database.loadLogs(timestamp.encode('ascii'))).get()
+        return r
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    @app.route("/engine/shutdown", methods=['GET'])
+    @apiheaders
+    @validate
+    def r_engine_shutdown():
+        # TBD
+        r = Response("error", "not supported").get()
         return r
 
     # -------------------------------------------------------------------------
