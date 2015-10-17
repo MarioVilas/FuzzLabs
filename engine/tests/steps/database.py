@@ -33,6 +33,8 @@ ISSUE_DATA = {
 }
 ISSUE_DATA_ID = "10708a964e6a54434d9853a2b1cff7bc0b564d51"
 
+LOG_TIME = None
+
 @given('we have session status data')
 def step_impl(context):
     pass
@@ -55,7 +57,8 @@ def step_impl(context):
 
 @then('the session data is returned')
 def step_impl(context):
-    assert context.ret_val == SESSION_DATA
+    assert context.ret_val["job_id"] == SESSION_DATA["job_id"]
+    assert context.ret_val["data"] == SESSION_DATA["data"]
 
 @when('we delete the session status data')
 def step_impl(context):
@@ -162,6 +165,8 @@ def step_impl(context):
 
 @when('we log several events to the database')
 def step_impl(context):
+    global LOG_TIME
+    LOG_TIME = time.time()
     context.ret_val = DATABASE.log(
         "info",
         "behave test message 1",
@@ -193,4 +198,22 @@ def step_impl(context):
 @then('true is returned if the events were logged')
 def step_impl(context):
     assert context.ret_val
+
+@when('we fetch the list of logs from database')
+def step_impl(context):
+    context.ret_val = DATABASE.loadLogs()
+
+@then('a list of logs is returned')
+def step_impl(context):
+    assert type(context.ret_val) == list
+
+@when('we get logs newer than timestamp from database')
+def step_impl(context):
+    global LOG_TIME
+    context.ret_val = DATABASE.loadLogs(LOG_TIME)
+
+@then('a list of logs newer than timestamp is returned')
+def step_impl(context):
+    assert type(context.ret_val) == list
+    assert len(context.ret_val) > 0
 

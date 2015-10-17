@@ -70,3 +70,13 @@ Feature: database handling
        When we log several events to the database
        Then true is returned if the events were logged
 
+  Scenario: read logs from database
+      Given we are connected to the database
+       When we fetch the list of logs from database
+       Then a list of logs is returned
+
+  Scenario: read logs from database from a given time
+      Given we are connected to the database
+       When we get logs newer than timestamp from database
+       Then a list of logs newer than timestamp is returned
+

@@ -23,8 +23,8 @@ fuzzlabs_root = None
 # -----------------------------------------------------------------------------
 
 whitelist = {}
-whitelist["id"]       = '^[a-f0-9]{32,64}$'
-whitelist["datetime"] = '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2} [0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}$'
+whitelist["id"]        = '^[a-f0-9]{32,64}$'
+whitelist["timestamp"] = '^[0-9\.]{1,32}$'
 
 # =============================================================================
 #
@@ -419,20 +419,21 @@ class webserver(threading.Thread):
     @apiheaders
     @validate
     def r_engine_logs():
-        # TBD
-        r = Response("error", "not supported").get()
+        global database
+        r = Response("success", "logs", database.loadLogs()).get()
         return r
 
     # -------------------------------------------------------------------------
     #
     # -------------------------------------------------------------------------
 
-    @app.route("/engine/logs/<datetime>", methods=['GET'])
+    @app.route("/engine/logs/<timestamp>", methods=['GET'])
     @apiheaders
     @validate
-    def r_engine_logs_from(datetime):
-        # TBD
-        r = Response("error", "not supported").get()
+    def r_engine_logs_from(timestamp):
+        global database
+        r = Response("success", "logs",
+                     database.loadLogs(timestamp.encode('ascii'))).get()
         return r
 
     # -------------------------------------------------------------------------

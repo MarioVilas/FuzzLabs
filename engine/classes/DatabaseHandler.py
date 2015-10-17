@@ -44,7 +44,7 @@ class DatabaseHandler:
     def loadSession(self, job_id = None):
         if not job_id: return False
         try:
-            r = self.database.sessions.find({"job_id": job_id})
+            r = self.database.sessions.find(spec={"job_id": job_id}, fields={'_id': False})
             for session in r:
                 return session
             return None
@@ -95,9 +95,8 @@ class DatabaseHandler:
 
         jobs_list = []
         try:
-            r = self.database.jobs.find()
+            r = self.database.jobs.find(fields={'_id': False})
             for job in r:
-                job.pop("_id", None)
                 jobs_list.append(job)
             return jobs_list
         except Exception, ex:
@@ -116,9 +115,8 @@ class DatabaseHandler:
         """
 
         try:
-            r = self.database.jobs.find({"job_id": job_id})
+            r = self.database.jobs.find({"job_id": job_id}, fields={'_id': False})
             for job in r:
-                job.pop("_id", None)
                 return job
             return None
         except Exception, ex:
@@ -195,10 +193,11 @@ class DatabaseHandler:
     def saveIssue(self, data):
         if not data: return False
 
-        id = hashlib.sha1(str(time.time()) + ":" +\
-                          data.get("job_id") + ":" +\
-                          str(data.get("mutant_index"))).hexdigest()
         try:
+            id = hashlib.sha1(str(time.time()) + ":" +\
+                              data.get("job_id") + ":" +\
+                              str(data.get("mutant_index"))).hexdigest()
+
             r = self.database.issues.insert({
                 "id":      id,
                 "job_id":  data.get("job_id"),
@@ -230,15 +229,13 @@ class DatabaseHandler:
         issue_list = []
 
         try:
-            r = self.database.issues.find()
+            r = self.database.issues.find(fields={'_id': False})
             for issue in r:
                 i_data = {
                      "id":     issue["id"],
                      "job_id": issue["job_id"],
                      "time":   issue["time"]
                 }
-                issue.pop("_id", None)
-
                 issue_list.append(i_data)
             return issue_list
         except Exception, ex:
@@ -257,9 +254,8 @@ class DatabaseHandler:
         """
 
         try:
-            r = self.database.issues.find({"id": id})
+            r = self.database.issues.find({"id": id}, fields={'_id': False})
             for issue in r:
-                issue.pop("_id", None)
                 return issue
             return None
         except Exception, ex:
@@ -325,4 +321,35 @@ class DatabaseHandler:
                           str(ex))
             return False
         return True
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def loadLogs(self, timestamp = None):
+        if not timestamp:
+            timestamp = 0
+
+        logs = []
+
+        if type(timestamp) == str:
+            try:
+                timestamp = float(timestamp)
+            except Exception, ex:
+                self.log("critical",
+                         "database loadLogs() failed to convert timestamp",
+                         str(ex))
+                return logs
+
+        try:
+            r = self.database.logs.find({"time": {"$gt": timestamp}},
+                                        fields={'_id': False}).sort("time")
+            for log_entry in r:
+                logs.append(log_entry)
+            return logs
+        except Exception, ex:
+            self.log("critical",
+                     "database loadLogs() failed",
+                     str(ex))
+            return logs
 

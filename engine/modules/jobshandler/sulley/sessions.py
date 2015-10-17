@@ -789,13 +789,10 @@ class session(pgraph.graph):
 
         crash_data["process_status"] = process_status
 
-        try:
-            self.database.saveIssue(crash_data)
-        except Exception, ex:
+        if not self.database.saveIssue(crash_data):
             self.database.log("error",
                               "failed to save crash data for job %s" %\
-                              self.session_id,
-                              str(ex))
+                              self.session_id)
 
     # -----------------------------------------------------------------------------------
     #
