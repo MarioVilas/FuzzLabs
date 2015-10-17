@@ -30,61 +30,6 @@ whitelist["datetime"] = '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2} [0-9]{1,2}:[0-9]{1,2}:[
 #
 # =============================================================================
 
-class system_stats:
-
-    def __init__(self):
-        pass
-
-    def get_cpu_stats(self):
-        cpu_used = int(round((psutil.cpu_times().user * 100) + \
-                   (psutil.cpu_times().system * 100), 0))
-        cpu_free = int(round(psutil.cpu_times().idle * 100, 0))
-
-        cpu_stat = {
-            "used": cpu_used,
-            "free": cpu_free
-        }
-
-        return cpu_stat
-
-    def get_memory_stats(self):
-
-        memory = {
-            "physical": {
-                "used": psutil.phymem_usage().used,
-                "free": psutil.phymem_usage().free
-            },
-            "virtual": {
-                "used": psutil.virtmem_usage().used,
-                "free": psutil.virtmem_usage().free
-            }
-        }
-
-        return memory
-
-    def get_disk_stats(self):
-
-        disk_stat = {
-            "used": psutil.disk_usage('/').used,
-            "free": psutil.disk_usage('/').free
-        }
-
-        return disk_stat
-
-    def get_stats_summary(self):
-
-        summary = {
-            "cpu": self.get_cpu_stats(),
-            "disk": self.get_disk_stats(),
-            "memory": self.get_memory_stats()
-        }
-
-        return summary
-
-# =============================================================================
-#
-# =============================================================================
-
 class Response:
 
     def __init__(self, status = None, message = None, data = None):
@@ -438,8 +383,32 @@ class webserver(threading.Thread):
     @apiheaders
     @validate
     def r_engine_status():
-        # TBD
-        r = Response("error", "not supported").get()
+        cpu_used = int(round((psutil.cpu_times().user * 100) + \
+                   (psutil.cpu_times().system * 100), 0))
+        cpu_free = int(round(psutil.cpu_times().idle * 100, 0))
+
+        s = {
+            "cpu": {
+                "used": cpu_used,
+                "free": cpu_free
+            },
+            "memory": {
+                "physical": {
+                    "used": psutil.phymem_usage().used,
+                    "free": psutil.phymem_usage().free
+                },
+                "virtual": {
+                    "used": psutil.virtmem_usage().used,
+                    "free": psutil.virtmem_usage().free
+                }
+            },
+            "disk": {
+                "used": psutil.disk_usage('/').used,
+                "free": psutil.disk_usage('/').free
+            }
+        }
+
+        r = Response("success", "status", s).get()
         return r
 
     # -------------------------------------------------------------------------
