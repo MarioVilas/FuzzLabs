@@ -23,6 +23,16 @@ JOB_DATA = SESSION_DATA = {
     "data": "this is just test data"
 }
 
+ISSUE_DATA = {
+    "job_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mutant_index": 101,
+    "target": {},
+    "name": "TEST",
+    "process_status": {},
+    "request": "REQUEST DATA"
+}
+ISSUE_DATA_ID = "10708a964e6a54434d9853a2b1cff7bc0b564d51"
+
 @given('we have session status data')
 def step_impl(context):
     pass
@@ -111,4 +121,76 @@ def step_impl(context):
 @then('true is returned if job was deleted')
 def step_impl(context):
     assert context.ret_val == True
+
+@when('we insert an issue into the database')
+def step_impl(context):
+    context.ret_val = DATABASE.saveIssue(ISSUE_DATA)
+
+@then('the issue ID is returned if the issue was saved')
+def step_impl(context):
+    global ISSUE_DATA_ID
+    ISSUE_DATA_ID = context.ret_val
+    assert context.ret_val
+
+@when('we load the issue from the database')
+def step_impl(context):
+    global ISSUE_DATA_ID
+    context.ret_val = DATABASE.loadIssue(ISSUE_DATA_ID)
+
+@then('the issue dictionary is returned')
+def step_impl(context):
+    assert type(context.ret_val) == dict
+    context.ret_val["job_id"] == ISSUE_DATA["job_id"]
+
+@when('we load the list of issues from the database')
+def step_impl(context):
+    context.ret_val = DATABASE.loadIssues()
+
+@then('a list of issues is returned')
+def step_impl(context):
+    assert type(context.ret_val) == list
+    assert len(context.ret_val) > 0
+
+@when('we delete the issue from the database')
+def step_impl(context):
+    global ISSUE_DATA_ID
+    context.ret_val = DATABASE.deleteIssue(ISSUE_DATA_ID)
+
+@then('true is returned if the issue was deleted')
+def step_impl(context):
+    assert context.ret_val
+
+@when('we log several events to the database')
+def step_impl(context):
+    context.ret_val = DATABASE.log(
+        "info",
+        "behave test message 1",
+        None
+    )
+    if not context.ret_val: return
+
+    context.ret_val = DATABASE.log(
+        "debug",
+        "behave test message 2",
+        "behave debug test message debug info 2"
+    )
+    if not context.ret_val: return
+
+    context.ret_val = DATABASE.log(
+        "error",
+        "behave test message 3",
+        "behave debug test message debug info 3"
+    )
+    if not context.ret_val: return
+
+    context.ret_val = DATABASE.log(
+        "critical",
+        "behave test message 4",
+        "behave debug test message debug info 4"
+    )
+    if not context.ret_val: return
+
+@then('true is returned if the events were logged')
+def step_impl(context):
+    assert context.ret_val
 

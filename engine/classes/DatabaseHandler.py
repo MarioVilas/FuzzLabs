@@ -211,12 +211,12 @@ class DatabaseHandler:
                 },
                 "payload": data.get("request")
             })
+            return id
         except Exception, ex:
             self.log("critical",
                      "database saveIssue() failed",
                      str(ex))
             return False
-        return True
 
     # -------------------------------------------------------------------------
     #
