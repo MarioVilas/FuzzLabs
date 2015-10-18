@@ -35,28 +35,28 @@
                 <td class="jobs_col_progbar">
                     <div ng-if="job.status == 1">
                         <progressbar type="danger" id="job_progress" max="job.t_m_index" value="job.c_m_index">
-                            <span style="color:black; white-space:nowrap;">
+                            <span class="progress">
                                 {{job.c_m_index}} / {{job.t_m_index}}
                             </span>
                         </progressbar>
                     </div>
                     <div ng-if="job.status == 3">
                         <progressbar type="success" id="job_progress" max="job.t_m_index" value="job.c_m_index">
-                            <span style="color:black; white-space:nowrap;">
+                            <span class="progress">
                                 FINISHED ({{job.c_m_index}} / {{job.t_m_index}})
                             </span>
                         </progressbar>
                     </div>
                     <div ng-if="job.status == 2">
                         <progressbar type="warning" id="job_progress" max="job.t_m_index" value="job.c_m_index">
-                            <span style="color:black; white-space:nowrap;">
+                            <span class="progress">
                                 PAUSED ({{job.c_m_index}} / {{job.t_m_index}})
                             </span>
                         </progressbar>
                     </div>
                     <div ng-if="job.status == 0">
                         <progressbar type="success" id="job_progress" max="job.t_m_index" value="job.c_m_index">
-                            <span style="color:black; white-space:nowrap;">
+                            <span class="progress">
                                 STOPPED ({{job.c_m_index}} / {{job.t_m_index}})
                             </span>
                         </progressbar>

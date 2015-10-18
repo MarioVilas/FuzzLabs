@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="fuzzlabsApp">
+<html lang="en" ng-app="fuzzlabsApp" ng-csp>
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -23,6 +23,7 @@
     <link href="/resources/stylesheet/jquery-ui.css" rel="stylesheet">
     <link href="/resources/stylesheet/bootstrap.min.css" rel="stylesheet">
     <link href="/resources/stylesheet/jquery.contextMenu.css" rel="stylesheet">
+    <link href="/resources/stylesheet/angular-csp.css" rel="stylesheet">
     <link href="/resources/stylesheet/main.css" rel="stylesheet">
 
 

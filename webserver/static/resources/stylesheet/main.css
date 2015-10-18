@@ -479,3 +479,9 @@ td.engine_offline {
   background-color: #D51230;
 }
 
+span.progress {
+  color: black; 
+  white-space: nowrap;
+  background: transparent;
+}
+
