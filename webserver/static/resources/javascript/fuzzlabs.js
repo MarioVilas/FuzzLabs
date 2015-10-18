@@ -182,14 +182,17 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
 
     var factory = {};
 
+    var fetching = false;
     var jobs = [];
 
     factory.fetch_jobs = function() {
         $http.get('/api/jobs').
         then(function(response) {
             jobs = response.data;
+            fetching = false;
         }, function(response) {
             jobs = null;
+            fetching = false;
         });
     }
 
@@ -218,8 +221,11 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
     }
 
     $interval(function() {
-        factory.fetch_jobs();
-    }, 3000);
+        if (fetching == false) {
+            fetching = true;
+            factory.fetch_jobs();
+        }
+    }, 1000);
 
     return(factory);
 }]);
@@ -305,7 +311,7 @@ fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'Engines
             console.log("Failed to get engines list.");
             return [];
         });
-    }, 3000);
+    }, 1000);
 
 }]);
 
@@ -355,7 +361,7 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
     $interval(function() {
         var jobs_list = JobsService.get_jobs();
         $scope.jobs = jobs_list;
-    }, 1000);
+    }, 500);
 
 }]);
 
