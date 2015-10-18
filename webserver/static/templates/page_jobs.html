@@ -66,22 +66,22 @@
                 <td>{{job.warnings}}</td>
                 <td>
                     <div ng-if="job.status == 1" id="job_action"> <!-- RUNNING -->
-                        <button class="job_action" title="Pause Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="pause_job">&#9646;&#9646;</button>
-                        <button class="job_action" title="Stop Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="stop_job">&#9726;</button>
-                        <button class="job_action" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
+                        <button class="job_action" ng-click="pauseJob($event)" title="Pause Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="pause_job">&#9646;&#9646;</button>
+                        <button class="job_action" ng-click="stopJob($event)" title="Stop Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="stop_job">&#9726;</button>
+                        <button class="job_action" ng-click="deleteJob($event)" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
                     </div>
                     <div ng-if="job.status == 3" id="job_action"> <!-- FINISHED -->
-                        <button class="job_action" title="Restart Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="restart_job">&#x27F3;</button>
-                        <button class="job_action" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
+                        <button class="job_action" ng-click="restartJob($event)" title="Restart Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="restart_job">&#x27F3;</button>
+                        <button class="job_action" ng-click="deleteJob($event)" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
                     </div>
                     <div ng-if="job.status == 0" id="job_action"> <!-- STOPPED -->
-                        <button class="job_action" title="Start Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="start_job">&#x25B6;</button>
-                        <button class="job_action" title="Restart Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="restart_job">&#x27F3;</button>
-                        <button class="job_action" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
+                        <button class="job_action" ng-click="startJob($event)" title="Start Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="start_job">&#x25B6;</button>
+                        <button class="job_action" ng-click="restartJob($event)" title="Restart Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="restart_job">&#x27F3;</button>
+                        <button class="job_action" ng-click="deleteJob($event)" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
                     </div>
                     <div ng-if="job.status == 2" id="job_action"> <!-- PAUSED -->
-                        <button class="job_action" title="Start Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="start_job">&#x25B6;</button>
-                        <button class="job_action" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
+                        <button class="job_action" ng-click="startJob($event)" title="Start Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="start_job">&#x25B6;</button>
+                        <button class="job_action" ng-click="deleteJob($event)" title="Delete Job" engine="{{job.engine_id}}" job_id="{{job.job_id}}" id="delete_job">&#x2718;</button>
                     </div>
                 </td>
             </tr>

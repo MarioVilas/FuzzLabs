@@ -274,24 +274,21 @@ fuzzlabsApp.controller('appInitCtrl', ['$scope', '$state', 'EnginesService', fun
 
 fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'EnginesService', function ($state, $scope, $interval, EnginesService) {
 
-    $(document).on("click", "button#add_new_engine", function() {
+    $scope.addNewEngine = function(clickEvent) {
         $state.go("Modal.addNewEngine");
-    });
+    };
 
-    $(document).on("click", "button#delete_engine", function() {
-        var e_name = $(this).attr('engine');
-        EnginesService.deleteEngine(e_name);
-    });
-
-    $(document).on("click", "button#activate_engine", function() {
-        var e_name = $(this).attr('engine');
+    $scope.activateEngine = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var e_name = $(target).attr('engine');
         EnginesService.activateEngine(e_name);
-    });
+    };
 
-    $(document).on("click", "button#set_active_engine", function() {
-        var e_name = $(this).attr('engine');
-        EnginesService.setActiveEngine(e_name);
-    });
+    $scope.deleteEngine = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var e_name = $(target).attr('engine');
+        EnginesService.deleteEngine(e_name);
+    };
 
     $interval(function() { 
         $.ajax({
@@ -320,35 +317,40 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
 
     var on_error_page = false;
 
-    $(document).on("click", "button#delete_job", function() {
-        var engine_id = $(this).attr('engine');
-        var job_id = $(this).attr('job_id');
-        JobsService.delete_job(engine_id, job_id);
-    });
-
-    $(document).on("click", "button#pause_job", function() {
-        var engine_id = $(this).attr('engine');
-        var job_id = $(this).attr('job_id');
-        JobsService.pause_job(engine_id, job_id);
-    });
-
-    $(document).on("click", "button#start_job", function() {
-        var engine_id = $(this).attr('engine');
-        var job_id = $(this).attr('job_id');
+    $scope.startJob = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var engine_id = $(target).attr('engine');
+        var job_id = $(target).attr('job_id');
         JobsService.start_job(engine_id, job_id);
-    });
+    };
 
-    $(document).on("click", "button#restart_job", function() {
-        var engine_id = $(this).attr('engine');
-        var job_id = $(this).attr('job_id');
+    $scope.deleteJob = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var engine_id = $(target).attr('engine');
+        var job_id = $(target).attr('job_id');
+        JobsService.delete_job(engine_id, job_id);
+    };
+
+    $scope.pauseJob = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var engine_id = $(target).attr('engine');
+        var job_id = $(target).attr('job_id');
+        JobsService.pause_job(engine_id, job_id);
+    };
+
+    $scope.restartJob = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var engine_id = $(target).attr('engine');
+        var job_id = $(target).attr('job_id');
         JobsService.restart_job(engine_id, job_id);
-    });
+    };
 
-    $(document).on("click", "button#stop_job", function() {
-        var engine_id = $(this).attr('engine');
-        var job_id = $(this).attr('job_id');
+    $scope.stopJob = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var engine_id = $(target).attr('engine');
+        var job_id = $(target).attr('job_id');
         JobsService.stop_job(engine_id, job_id);
-    });
+    };
 
     $interval(function() {
         var jobs_list = JobsService.get_jobs();

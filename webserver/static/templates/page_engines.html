@@ -1,6 +1,6 @@
 <div class="container" ng-controller="enginesCtrl">
     <div class="sub_menu">
-        <button id="add_new_engine">&#x2795; Add Engine</button>
+        <button ng-click="addNewEngine($event)" id="add_new_engine">&#x2795; Add Engine</button>
     </div>
     <table class="table table-striped" id="engines_list">
         <thead>
@@ -22,8 +22,8 @@
                 <td>{{engine.port}}</td>
                 <td>{{engine.owner}}</td>
                 <td>
-                    <button ng-if="engine.active == 0" engine="{{engine.id}}" title="Activate Engine" id="activate_engine">&#x25B6;</button>
-                    <button engine="{{engine.id}}" title="Delete Engine" id="delete_engine">&#x2718;</button>
+                    <button ng-click="activateEngine($event)" ng-if="engine.active == 0" engine="{{engine.id}}" title="Activate Engine" id="activate_engine">&#x25B6;</button>
+                    <button ng-click="deleteEngine($event)" engine="{{engine.id}}" title="Delete Engine" id="delete_engine">&#x2718;</button>
                 </td>
             </tr>
         </tbody>
