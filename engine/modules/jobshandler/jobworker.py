@@ -289,7 +289,8 @@ class jobworker():
                                  self.job_id,
                                  settings,
                                  transport,
-                                 conditions)
+                                 conditions,
+                                 self.job_data)
             self.core.add_target(endpoint)
 
             if agent and agent != {}:

@@ -70,10 +70,11 @@ class session(pgraph.graph):
     #
     # -----------------------------------------------------------------------------------
 
-    def __init__(self, config, root, session_id, settings, transport, conditions):
+    def __init__(self, config, root, session_id, settings, transport, conditions, job):
         pgraph.graph.__init__(self)
 
         self.session_id          = session_id
+        self.job_data            = job
         self.root_dir            = root
         self.config              = config
         self.database            = db.DatabaseHandler(self.config, self.root_dir)
@@ -776,7 +777,7 @@ class session(pgraph.graph):
     #
     # -----------------------------------------------------------------------------------
 
-    def dump_crash_data(self, crash_data, process_status = None):
+    def dump_crash_data(self, crash_data, process_status, warning, crash):
         '''
         Dump crash data to disk.
         '''
@@ -787,7 +788,10 @@ class session(pgraph.graph):
         if process_status == None:
             process_status = {}
 
-        crash_data["process_status"] = process_status
+        crash_data["process"] = process_status
+        crash_data["crash"]   = crash
+        crash_data["warning"] = warning
+        crash_data["job"]     = self.job_data
 
         if not self.database.saveIssue(crash_data):
             self.database.log("error",
@@ -844,7 +848,7 @@ class session(pgraph.graph):
         Handle cases where we suspect the target has crashed.
         """
 
-        p_status = None
+        p_status = {}
         process_running = False
 
         # Something has definitely happened. Check the agent (if any) to see the process
@@ -878,13 +882,18 @@ class session(pgraph.graph):
         # At the point of the connection the previous request is still in 
         # self.current_sent so that is the one to be used.
 
+        warning = False
+        crash   = False
+
         if event == "fail_connection":
             if self.current_sent:
-                self.dump_crash_data(self.current_sent, p_status)
                 if process_running:
                     self.warning_count = self.warning_count + 1
+                    warning = True
                 else:
                     self.crash_count = self.crash_count + 1
+                    crash = True
+                self.dump_crash_data(self.current_sent, p_status, warning, crash)
             else:
                 # Target offline?
                 pass
@@ -893,22 +902,26 @@ class session(pgraph.graph):
         # of the issue is the current request, therefore we save that.
 
         elif event == "fail_receive":
-            self.dump_crash_data(self.current_sent, p_status)
             if process_running:
                 self.warning_count = self.warning_count + 1
+                warning = True
             else:
                 self.crash_count = self.crash_count + 1
+                crash = True
+            self.dump_crash_data(self.current_sent, p_status, warning, crash)
 
         # If we can't send the request, similarly to fail_connection, it
         # was one of the previous requests to cause the issue.
 
         else:
-            if self.previous_sent:
-                self.dump_crash_data(self.previous_sent, p_status)
             if process_running:
                 self.warning_count = self.warning_count + 1
+                warning = True
             else:
                 self.crash_count = self.crash_count + 1
+                crash = True
+            if self.previous_sent:
+                self.dump_crash_data(self.previous_sent, p_status, warning, crash)
 
         # In any of the above cases we pause the job or continue if we have an agent
         # and could restart the process.

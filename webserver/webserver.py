@@ -30,6 +30,7 @@ from classes.database import Base
 from classes.database.User import User
 from classes.database.Engine import Engine
 from classes.database.Job import Job
+from classes.database.Issue import Issue
 
 # -----------------------------------------------------------------------------
 #
@@ -432,6 +433,35 @@ def api_engine_jobs():
         jobs_list.append(job_data)
 
     r = Response("success", "jobs", jobs_list).get()
+    return r
+
+# -----------------------------------------------------------------------------
+#
+# -----------------------------------------------------------------------------
+
+@app.route("/api/issues", methods=['GET'])
+@api_headers
+@validate
+@api_authenticated
+def api_get_issues():
+    issues = db.session.query(Issue)
+
+    if issues.count() == 0:
+        r = Response("success", "No issues available.").get()
+        return r
+
+    issues_list = []
+    for issue in issues:
+        issue_data = {
+            "id"          : issue.id,
+            "job_id"      : issue.job_id,
+            "time"        : issue.time,
+            "info"        : json.loads(issue.info)
+        }
+
+        issues_list.append(issue_data)
+
+    r = Response("success", "issues", issues_list).get()
     return r
 
 # -----------------------------------------------------------------------------

@@ -52,7 +52,8 @@
           <ul class="nav navbar-nav">
             <li class="main-menu-item active" id="main_jobs"><a href="#jobs">Jobs</a></li>
             <li class="main-menu-item" id="main_issues"><a href="#issues">Issues</a></li>
-            <li class="main-menu-item" id="main_parser"><a href="#parser">Parser</a></li>
+            <!-- THIS IS STILL UNDER DEVELOPMENT -->
+            <!-- <li class="main-menu-item" id="main_parser"><a href="#parser">Parser</a></li> -->
             <li class="main-menu-item" id="main_engines"><a href="#engines">Engines</a></li>
             <li class="main-menu-item"><a href="http://fuzzlabs.dcnws.com" target="_blank">Documentation</a></li>
           </ul>

@@ -198,17 +198,27 @@ class DatabaseHandler:
                               data.get("job_id") + ":" +\
                               str(data.get("mutant_index"))).hexdigest()
 
+            severity = 0
+            if data.get("crash") == True:
+                severity = 2
+            elif data.get("warning") == True:
+                severity = 1 
+
             r = self.database.issues.insert({
-                "id":      id,
-                "job_id":  data.get("job_id"),
-                "time":    time.time(),
+                "id":           id,
+                "job_id":       data.get("job_id"),
+                "time":         time.time(),
+                "mutant_index": data.get("mutant_index"),
+                "node":         data.get("name"),
+                "severity":     severity,
                 "info":    {
-                    "target":       data.get("target"),
-                    "name":         data.get("name"),
                     "mutant_index": data.get("mutant_index"),
-                    "process":      data.get("process_status")
+                    "node":         data.get("name"),
+                    "severity":     severity,
+                    "process":      data.get("process"),
+                    "job":          data.get("job")
                 },
-                "payload": data.get("request")
+                "payload":  data.get("request")
             })
             return id
         except Exception, ex:

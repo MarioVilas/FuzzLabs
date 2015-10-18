@@ -234,6 +234,42 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
 //
 // -----------------------------------------------------------------------------
 
+fuzzlabsApp.factory('IssuesService', ['$interval', '$http', function($interval, $http) {
+
+    var factory = {};
+
+    var fetching = false;
+    var issues = [];
+
+    factory.fetch_issues = function() {
+        $http.get('/api/issues').
+        then(function(response) {
+            issues = response.data;
+            fetching = false;
+        }, function(response) {
+            issues = null;
+            fetching = false;
+        });
+    }
+
+    factory.get_issues = function() {
+        return(issues);
+    }
+
+    $interval(function() {
+        if (fetching == false) {
+            fetching = true;
+            factory.fetch_issues();
+        }
+    }, 1000);
+
+    return(factory);
+}]);
+
+// -----------------------------------------------------------------------------
+//
+// -----------------------------------------------------------------------------
+
 fuzzlabsApp.controller('appInitCtrl', ['$scope', '$state', 'EnginesService', function ($scope, $state, EnginesService) {
 
     $(document).on("click", "#save_engine", function() {
@@ -321,8 +357,6 @@ fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'Engines
 
 fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsService', function ($state, $scope, $interval, JobsService) {
 
-    var on_error_page = false;
-
     $scope.startJob = function(clickEvent) {
         var target = clickEvent.currentTarget;
         var engine_id = $(target).attr('engine');
@@ -364,4 +398,18 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
     }, 500);
 
 }]);
+
+// -----------------------------------------------------------------------------
+//
+// -----------------------------------------------------------------------------
+
+fuzzlabsApp.controller('issuesCtrl', ['$state', '$scope', '$interval', 'IssuesService', function ($state, $scope, $interval, IssuesService) {
+
+    $interval(function() {
+        var issues_list = IssuesService.get_issues();
+        $scope.issues = issues_list;
+    }, 1000);
+
+}]);
+
 

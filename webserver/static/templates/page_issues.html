@@ -1,1 +1,36 @@
-ISSUES
+<div class="container" ng-controller="issuesCtrl">
+    <table class="table table-striped" id="issues_list">
+        <thead>
+            <tr>
+                <th>Job</th>
+                <th>Time</th>
+                <th>Severity</th>
+                <th>Mutant Index</th>
+                <th>Process ID</th>
+                <th>Signum</th>
+                <th>Signal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="tbody_jobs_list">
+            <tr ng-repeat="issue in issues.data | filter:query">
+                <td ng-if="issue.info.job.name">{{issue.info.job.name}}</td>
+                <td ng-if="!issue.info.job.name">{{issue.job_id}}</td>
+                <td>{{issue.time}}</td>
+                <td>{{issue.info.severity}}</td>
+                <td>{{issue.info.mutant_index}}</td>
+                <td ng-if="issue.info.process.process_id">{{issue.info.process.process_id}}</td>
+                <td ng-if="!issue.info.process.process_id">N/A</td>
+                <td ng-if="issue.info.process.signal_num">{{issue.info.process.signal_num}}</td>
+                <td ng-if="!issue.info.process.signal_num">N/A</td>
+                <td ng-if="issue.info.process.signal_str">{{issue.info.process.signal_str}}</td>
+                <td ng-if="!issue.info.process.signal_str">N/A</td>
+                <td>
+                    <button class="issue_action" title="Pause Job">&#8505;</button>
+                    <button class="issue_action" title="Delete Issue">&#x2718;</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
