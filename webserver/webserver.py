@@ -176,7 +176,7 @@ def headers(f):
     @add_response_headers({'X-Frame-Options': 'SAMEORIGIN'})
     @add_response_headers({'X-XSS-Protection': '1; mode=block'})
     @add_response_headers({'X-Content-Type-Options': 'nosniff'})
-    @add_response_headers({'Content-Security-Policy': 'default-src \'self\''})
+    @add_response_headers({'Content-Security-Policy': 'default-src \'self\'; script-src \'self\' \'unsafe-eval\''})
     @add_response_headers({'Strict-Transport-Security': 'max-age=172800; includeSubDomains'})
     def decorated_function(*args, **kwargs):
         return f(*args, **kwargs)
@@ -462,6 +462,31 @@ def api_get_issues():
         issues_list.append(issue_data)
 
     r = Response("success", "issues", issues_list).get()
+    return r
+
+# -----------------------------------------------------------------------------
+#
+# -----------------------------------------------------------------------------
+
+@app.route("/api/issues/<id>", methods=['GET'])
+@api_headers
+@validate
+@api_authenticated
+def api_get_issue(id):
+    issue = db.session.query(Issue).filter(Issue.id == id).first()
+
+    if issue:
+        issue_data = {
+            "id"          : issue.id,
+            "job_id"      : issue.job_id,
+            "time"        : issue.time,
+            "info"        : json.loads(issue.info),
+            "payload"     : issue.payload
+        }
+        r = Response("success", "issue", issue_data).get()
+        return r
+
+    r = Response("error", "Issue not found.").get()
     return r
 
 # -----------------------------------------------------------------------------

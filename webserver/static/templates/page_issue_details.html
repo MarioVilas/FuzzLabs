@@ -1,0 +1,61 @@
+<script src="/resources/javascript/editor.js"></script>
+<div class="container" ng-controller="issueCtrl">
+    <legend>{{issue.data.info.job.name}}</legend>
+    <div class="row">
+    <div class="col-md-4">
+        <div>
+            <table>
+                <tr>
+                    <td class="property">Job Name:</td><td>{{issue.data.info.job.name}}</td>
+                </tr>
+                <tr>
+                    <td class="property">Job ID:</td><td>{{issue.data.job_id}}</td>
+                </tr>
+                <tr>
+                    <td class="property">Event Time:</td><td>{{issue.data.time}}</td>
+                </tr>
+                <tr>
+                    <td class="property">Event Type:</td>
+                    <td ng-if="issue.data.info.severity == 2">Crash</td>
+                    <td ng-if="issue.data.info.severity == 1">Warning</td>
+                </tr>
+                <tr ng-if="issue.data.info.process.signal_str">
+                    <td class="property">Root Cause:</td><td>{{issue.data.info.process.signal_str}} (Signal {{issue.data.info.process.signal_num}})</td>
+                </tr>
+                <tr>
+                    <td class="property">Mutant Index:</td><td>{{issue.data.info.mutant_index}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="editor">
+
+            <div id="editor_tabs">
+                <ul>
+                    <li><a href="#tabs-1">Hex</a></li>
+                    <li><a href="#tabs-2">Python</a></li>
+                    <li><a href="#tabs-3">C</a></li>
+                </ul>
+                <div id="tabs-1">
+                </div>
+                <div id="tabs-2">
+                </div>
+                <div id="tabs-3">
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </div>
+
+    <div class="row">
+        <div class="section_comments">
+            Comments
+        </div>
+        <div class="issue_comments">
+            <textarea></textarea>
+        </div>
+    </div>
+</div>
+

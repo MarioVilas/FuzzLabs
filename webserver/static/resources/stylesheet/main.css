@@ -150,6 +150,14 @@ div.sub_menu {
   margin-bottom: 15px;
 }
 
+td {
+  padding: 3px;
+}
+
+td.property {
+  font-weight: bold;
+}
+
 td.list_key {
   min-width: 90px;
 }
@@ -483,5 +491,28 @@ span.progress {
   color: black; 
   white-space: nowrap;
   background: transparent;
+}
+
+div.section_comments {
+  margin-top: 25px;
+  font-weight: bold;
+}
+
+div.issue_comments {
+  padding: 30px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 90px;
+  border-radius: 5px;
+  border: 1px solid #BBBBBB;
+  resize: vertical;
+}
+
+div.editor {
+  background-color: #EEEEEE;
+  width: 100%;
+  min-height: 200px;
 }
 

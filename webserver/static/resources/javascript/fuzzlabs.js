@@ -116,6 +116,16 @@ fuzzlabsApp.config(['$stateProvider',
         }
     });
 
+    $stateProvider.state("Issue", {
+        url: "/issue?id",
+        views:{
+            "modal": {
+                templateUrl: "templates/page_issue_details.html"
+            }
+        },
+        controller: 'issueCtrl'
+    });
+
 }]);
 
 // -----------------------------------------------------------------------------
@@ -400,6 +410,21 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
         var jobs_list = JobsService.get_jobs();
         $scope.jobs = jobs_list;
     }, 500);
+
+}]);
+
+// -----------------------------------------------------------------------------
+// TODO
+// -----------------------------------------------------------------------------
+
+fuzzlabsApp.controller('issueCtrl', ['$state', '$scope', '$http', '$stateParams', function ($state, $scope, $http, $stateParams) {
+
+    $http.get('/api/issues/' + $stateParams.id).
+    then(function(response) {
+        $scope.issue = response.data;
+    }, function(response) {
+        $scope.issue = null;
+    });
 
 }]);
 
