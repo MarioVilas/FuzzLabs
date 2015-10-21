@@ -26,8 +26,8 @@
                 <td ng-if="issue.info.process.signal_str">{{issue.info.process.signal_str}}</td>
                 <td ng-if="!issue.info.process.signal_str">N/A</td>
                 <td>
-                    <button class="issue_action" title="Show Details">&#8505;</button>
-                    <button class="issue_action" title="Delete Issue">&#x2718;</button>
+                    <button ng-click="issueDetails($event)" issue_id="{{issue.id}}" class="issue_action" title="Show Details">&#8505;</button>
+                    <button ng-click="deleteIssue($event)" issue_id="{{issue.id}}" class="issue_action" title="Delete Issue">&#x2718;</button>
                 </td>
             </tr>
         </tbody>

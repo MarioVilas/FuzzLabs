@@ -468,6 +468,24 @@ def api_get_issues():
 #
 # -----------------------------------------------------------------------------
 
+@app.route("/api/issues/<id>/delete", methods=['GET'])
+@api_headers
+@validate
+@api_authenticated
+def api_delete_issue(id):
+    issue = db.session.query(Issue).filter(Issue.id == id).first()
+
+    if issue:
+        db.session.delete(issue)
+        db.session.commit()
+
+    r = Response("success", "deleted").get()
+    return r
+
+# -----------------------------------------------------------------------------
+#
+# -----------------------------------------------------------------------------
+
 @app.route("/api/engine/<id>/job/<job_id>/delete", methods=['GET'])
 @api_headers
 @validate

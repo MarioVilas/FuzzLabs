@@ -241,6 +241,10 @@ fuzzlabsApp.factory('IssuesService', ['$interval', '$http', function($interval, 
     var fetching = false;
     var issues = [];
 
+    factory.delete_issue = function(issue_id) {
+        $http.get('/api/issues/' + issue_id + '/delete')
+    }
+
     factory.fetch_issues = function() {
         $http.get('/api/issues').
         then(function(response) {
@@ -404,6 +408,12 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
 // -----------------------------------------------------------------------------
 
 fuzzlabsApp.controller('issuesCtrl', ['$state', '$scope', '$interval', 'IssuesService', function ($state, $scope, $interval, IssuesService) {
+
+    $scope.deleteIssue = function(clickEvent) {
+        var target = clickEvent.currentTarget;
+        var issue_id = $(target).attr('issue_id');
+        IssuesService.delete_issue(issue_id);
+    };
 
     $interval(function() {
         var issues_list = IssuesService.get_issues();
