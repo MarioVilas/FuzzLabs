@@ -15,7 +15,7 @@
             </tr>
         </thead>
         <tbody id="tbody_jobs_list">
-            <tr ng-repeat="job in jobs.data | filter:query">
+            <tr ng-repeat="job in jobs.data | filter:searchText">
                 <td ng-show="job.name">{{job.name}}</td>
                 <td ng-show="!job.name">{{job.job_id}}</td>
                 <td>

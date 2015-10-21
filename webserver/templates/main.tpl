@@ -60,6 +60,9 @@
           <ul class="nav navbar-nav navbar-right">
               <li class="main-menu-item"><a href="/logout">Logout</a></li>
           </ul>
+          <form class="navbar-form navbar-right">
+            <input ng-model="searchText" type="text" class="form-control" placeholder="Search...">
+          </form>
         </div><!--/.nav-collapse -->
       </div>
     </nav>

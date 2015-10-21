@@ -14,7 +14,7 @@
             </tr>
         </thead>
         <tbody id="tbody_engines_list">
-            <tr ng-repeat="engine in engines | filter:query">
+            <tr ng-repeat="engine in engines | filter:searchText">
                 <td ng-if="engine.active == 1" class="engine_status engine_online"></td>
                 <td ng-if="engine.active == 0" class="engine_status engine_offline"></td>
                 <td>{{engine.name}}</td>
