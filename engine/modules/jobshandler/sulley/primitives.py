@@ -1276,7 +1276,7 @@ class padding:
         except KeyError, kex:
             raise sex.SullyRuntimeError("PADDING COULD NOT FIND CLOSED BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(kex)))
         except Exception, ex:
-            raise sex.SullyRuntimeError("PADDING COULD PROCESS BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(ex)))
+            raise sex.SullyRuntimeError("PADDING COULD NOT PROCESS BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(ex)))
 
         block_length = len(block)
         add_bytes = (self.byte_align - (block_length % self.byte_align)) % self.byte_align
