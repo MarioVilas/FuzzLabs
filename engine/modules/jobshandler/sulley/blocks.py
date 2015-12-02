@@ -31,7 +31,7 @@ class request (pgraph.node):
         self.rendered      = ""      # rendered block structure.
         self.mutant_index  = 0       # current mutation index.
         self.mutant        = None    # current primitive being mutated.
-
+        self.s_type        = "request"
 
     def mutate (self):
         mutated = False

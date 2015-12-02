@@ -8,7 +8,8 @@ from sulley import *
 
 s_initialize("TEST")
 s_static("THIS IS JUST A TEST ")
-s_binary("0x00")
+s_binary("\xFF")
+s_binary([0x00])
 s_byte(0x00, full_range=True)
 s_string("a")
 s_string("a")

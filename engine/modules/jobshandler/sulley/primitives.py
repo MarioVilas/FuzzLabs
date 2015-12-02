@@ -386,7 +386,16 @@ class binary (base_primitive):
         self.current_pos    = 0
         self.current_val    = 0
         self.original_value = copy.deepcopy(value)
-        self.value          = copy.deepcopy(value)
+        self.value          = []
+
+        if type(value) is list:
+            self.value      = copy.deepcopy(value)
+        elif type(value) is str:
+            for byte_val in value:
+                self.value.append(struct.unpack("B", byte_val)[0])
+        else:
+            assert(type(value) is list or type(value) is str), 'value has to be a list of bytes or string'
+
         self.rendered       = ""
 
         self.max_int        = 0
@@ -1239,6 +1248,7 @@ class padding:
         self.fuzzable           = fuzzable
         self.name               = name
 
+        self.s_type             = "padding"
         self.value              = self.original_value = ""   # default to nothing!
         self.rendered           = ""                         # rendered value
         self.fuzz_complete      = False                      # flag if this primitive has been completely fuzzed

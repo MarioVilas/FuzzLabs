@@ -704,10 +704,9 @@ class session(pgraph.graph):
         try:
             data = node.render()
         except Exception, ex:
-            self.database.log("error", "WTF?????????????????????") # TODO
             self.database.log("error",
-                              "failed to render node (%s) for transmit for job %s" %\
-                              (node.s_type, self.session_id),
+                              "failed to render node for transmit for job %s" %\
+                              self.session_id,
                               str(ex))
             return False
 
