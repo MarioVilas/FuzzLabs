@@ -30,7 +30,9 @@ class media:
     # -------------------------------------------------------------------------
 
     def __init__(self, bind=None, timeout=5.0, protos = []):
-        self.bind = bind
+        self.bind = None
+        if bind:
+            self.bind = (bind.get('address'), bind.get('port'))
         self.timeout = timeout
         self.proto = None
         self.protos = protos
@@ -131,6 +133,7 @@ class network(media):
         media.__init__(self, bind, timeout, ["tcp", "udp"])
         self.target_address = None
         self.target_port = None
+        self.connected = False
 
     # -------------------------------------------------------------------------
     #
@@ -161,10 +164,28 @@ class network(media):
             self.socket.settimeout(self.timeout)
             if self.proto == "tcp":
                 self.socket.connect((self.target_address, self.target_port))
+                self.connected = True
         except Exception, e:
             raise Exception, ["failed to connect to target %s:%d" %
                               (self.target_address, self.target_port),
                              str(e)]
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def disconnect(self):
+        try:
+            self.socket.shutdown(2)
+        except Exception, ex:
+            raise Exception(ex)
+
+        try:
+            self.socket.close()
+        except Exception, ex:
+            pass
+        self.socket = None
+
 
     # -------------------------------------------------------------------------
     #
@@ -192,6 +213,33 @@ class network(media):
                                    self.target_port))
             except Exception, e:
                 raise Exception, ["failed to send data", str(e)]
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def disconnect(self):
+        try:
+            self.socket.shutdown(2)
+        except Exception, ex:
+            raise Exception(ex)
+
+        try:
+            self.socket.close()
+        except Exception, ex:
+            pass
+        self.socket = None
+
+
+    # -------------------------------------------------------------------------
+    #
+    # -------------------------------------------------------------------------
+
+    def send(self, data):
+        try:
+            self.socket.send(data)
+        except Exception, e:
+            raise Exception, ["failed to send data", str(e)]
 
 # =============================================================================
 # DRIVER FOR BLUETOOTH

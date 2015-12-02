@@ -69,6 +69,7 @@ class DatabaseThread(threading.Thread):
                                 name        = job["name"],
                                 engine_id   = engine.id,
                                 status      = job["status"],
+                                node        = job["node"],
                                 c_m_index   = job["c_m_index"],
                                 t_m_index   = job["t_m_index"],
                                 crashes     = job["crashes"],
@@ -103,6 +104,7 @@ class DatabaseThread(threading.Thread):
                     n_job.job_loaded  = job["job_loaded"]
                     n_job.job_started = job["job_started"]
                     n_job.job_stopped = job["job_stopped"]
+                    n_job.node        = job["node"]
                     n_job.session     = json.dumps(job["session"])
                     n_job.target      = json.dumps(job["target"])
                     n_job.conditions  = json.dumps(job["conditions"])

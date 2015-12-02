@@ -1,6 +1,9 @@
 import random
 import struct
+import blocks
 import zlib
+import copy
+import sex
 
 ########################################################################################################################
 class base_primitive (object):
@@ -372,6 +375,113 @@ class static (base_primitive):
 
         return 0
 
+########################################################################################################################
+class binary (base_primitive):
+    def __init__ (self, value, fuzzable, name=None):
+        self.name           = name
+        self.fuzzable       = fuzzable    # every primitive needs this attribute.
+        self.mutant_index   = 0
+        self.s_type         = "binary"    # for ease of object identification
+        self.fuzz_complete  = False
+        self.current_pos    = 0
+        self.current_val    = 0
+        self.original_value = copy.deepcopy(value)
+        self.value          = copy.deepcopy(value)
+        self.rendered       = ""
+
+        self.max_int        = 0
+        self.payloads       = [0x00, 0x01, 0xFF, 0x7F]
+        self.position       = 0
+        self.i_position     = 0
+        self.edge_case_cnt  = 0
+        self.int_sizes      = sorted(self.get_fuzz_sizes([1,2,3,4,8]))
+        self.edge_cases     = self.gen_edge_cases()
+
+    def byte_replace(self):
+        self.value = copy.deepcopy(self.original_value)
+        if self.current_val > 3:
+            self.current_val = 0
+            self.current_pos += 1
+
+        if self.mutant_index >= (len(self.original_value) * 4):
+            self.value = copy.deepcopy(self.original_value)
+            return False
+
+        self.value[self.current_pos] = self.payloads[self.current_val]
+        self.current_val += 1
+        self.mutant_index += 1
+
+        return True
+
+    def get_fuzz_sizes(self, int_sizes):
+        sizes = []
+        for int_size in int_sizes:
+            if len(self.original_value) >= int_size:
+                sizes.append(int_size)
+        return sizes
+
+    def gen_edge_cases(self):
+        edge_cases = []
+        for int_size in self.int_sizes:
+            edge_cases.append("\x00" * int_size)
+            edge_cases.append("\xFF" * int_size)
+            edge_cases.append("\x7F" + ("\xFF" * (int_size - 1)))
+            edge_cases.append(("\xFF" * (int_size - 1)) + "\x7F")
+        return edge_cases
+
+    def integer_tests(self):
+        self.value = copy.deepcopy(self.original_value)
+        m_value = self.render()
+
+        if self.edge_case_cnt > len(self.edge_cases) - 1:
+            self.i_position += 1
+            self.edge_case_cnt = 0
+
+        temp = []
+        for x in m_value[:self.i_position] +\
+                 self.edge_cases[self.edge_case_cnt] +\
+                 m_value[self.i_position+len(self.edge_cases[self.edge_case_cnt]):]:
+            temp.append(ord(x))
+        self.value = copy.deepcopy(temp)
+
+        self.edge_case_cnt += 1
+        self.mutant_index += 1
+
+        return True
+
+    def mutate (self):
+        self.value = copy.deepcopy(self.original_value)
+
+        if not self.fuzzable or self.fuzz_complete:
+            self.value = copy.deepcopy(self.original_value)
+            return False
+
+        if self.mutant_index == self.num_mutations():
+            self.value = copy.deepcopy(self.original_value)
+            self.fuzz_complete = True
+            return True
+
+        if self.byte_replace():
+            return True
+        return self.integer_tests()
+
+    def num_mutations (self):
+        mutations = 0
+        mutations += (len(self.original_value) * 4)
+        for position in range(0, len(self.original_value)):
+            for edge_case in self.edge_cases:
+                if len(edge_case) +\
+                   len(self.original_value[0:position]) +\
+                   len(self.original_value[position+len(edge_case):len(self.original_value)]) > len(self.original_value):
+                    continue
+                mutations += 1
+        return mutations
+
+    def render (self):
+        self.rendered = ""
+        for r_byte in self.value:
+            self.rendered += chr(r_byte)
+        return self.rendered
 
 ########################################################################################################################
 class string (base_primitive):
@@ -519,12 +629,15 @@ class string (base_primitive):
             self.add_long_strings("+")
             self.add_long_strings("{")
             self.add_long_strings("}")
+            self.add_long_strings("%s")
+            self.add_long_strings("%d")
+            self.add_long_strings("%n")
             self.add_long_strings("\x14")
             self.add_long_strings("\xFE")   # expands to 4 characters under utf16
             self.add_long_strings("\xFF")   # expands to 4 characters under utf16
 
             # add some long strings with null bytes thrown in the middle of it.
-            for length in [128, 256, 1024, 2048, 4096, 32767, 0xFFFF]:
+            for length in [128, 256, 1024, 2048, 4096, 10000, 15000, 20000, 25000, 32767, 50000, 0xFFFF]:
                 s = "B" * length
                 s = s[:len(s)/2] + "\x00" + s[len(s)/2:]
                 string.fuzz_library.append(s)
@@ -561,9 +674,9 @@ class string (base_primitive):
         @param sequence: Sequence to repeat for creation of fuzz strings.
         '''
 
-        for length in [128, 255, 256, 257, 511, 512, 513, 1023, 1024, 2048, 2049, 4095, 4096, 4097, 5000, 10000, 20000,
-                       32762, 32763, 32764, 32765, 32766, 32767, 32768, 32769, 0xFFFF-2, 0xFFFF-1, 0xFFFF, 0xFFFF+1,
-                       0xFFFF+2, 99999, 100000, 500000, 1000000]:
+        for length in [128, 255, 256, 257, 511, 512, 513, 1023, 1024, 2048, 2049, 4095, 4096, 4097, 5000, 10000, 15000,
+                       20000, 25000, 32762, 32763, 32764, 32765, 32766, 32767, 32768, 32769, 0xFFFF-2, 0xFFFF-1,
+                       0xFFFF, 0xFFFF+1, 0xFFFF+2, 99999, 100000, 500000, 1000000]:
 
             long_string = sequence * length
             string.fuzz_library.append(long_string)
@@ -1112,4 +1225,72 @@ class bitfield (base_primitive):
             count += 1
 
         return self.rendered
+
+########################################################################################################################
+class padding:
+
+    def __init__ (self, block_name, request, pad_byte=0x00, byte_align=4, max_reps=16, step=1, fuzzable=True, name=None):
+        self.block_name         = block_name
+        self.request            = request
+        self.pad_byte           = pad_byte
+        self.byte_align         = byte_align
+        self.max_reps           = max_reps
+        self.step               = step
+        self.fuzzable           = fuzzable
+        self.name               = name
+
+        self.value              = self.original_value = ""   # default to nothing!
+        self.rendered           = ""                         # rendered value
+        self.fuzz_complete      = False                      # flag if this primitive has been completely fuzzed
+        self.fuzz_library       = []                         # library of static fuzz heuristics to cycle through.
+        self.mutant_index       = 0                          # current mutation number
+
+        for p_round in range(0, (max_reps / step)):
+            self.fuzz_library.append(struct.pack("B", self.pad_byte) * step)
+
+    def num_mutations (self):
+        return len(self.fuzz_library)
+
+    def mutate (self):
+        self.value = self.original_value
+
+        # if we've run out of mutations, raise the completion flag.
+        if self.mutant_index >= self.num_mutations():
+            self.fuzz_complete = True
+
+        # if fuzzing was disabled or complete, and mutate() is called, ensure the original value is restored.
+        if not self.fuzzable or self.fuzz_complete:
+            self.value = self.original_value
+            return False
+
+        self.value = self.fuzz_library[self.mutant_index]
+
+        # increment the mutation count.
+        self.mutant_index += 1
+
+        return True
+
+    def render (self):
+        try:
+            block = self.request.closed_blocks[self.block_name].rendered
+        except KeyError, kex:
+            raise sex.SullyRuntimeError("PADDING COULD NOT FIND CLOSED BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(kex)))
+        except Exception, ex:
+            raise sex.SullyRuntimeError("PADDING COULD PROCESS BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(ex)))
+
+        block_length = len(block)
+        add_bytes = (self.byte_align - (block_length % self.byte_align)) % self.byte_align
+        self.rendered = struct.pack("B", self.pad_byte) * add_bytes
+
+        self.rendered += str(self.value)
+        return self.rendered
+
+    def reset (self):
+        '''
+        Reset the fuzz state of this primitive.
+        '''
+
+        self.fuzz_complete  = False
+        self.mutant_index   = 0
+        self.value          = self.original_value
 

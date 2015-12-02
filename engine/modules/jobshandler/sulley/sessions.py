@@ -120,11 +120,15 @@ class session(pgraph.graph):
         try:
             self.transport_media = getattr(media, self.media)(self.bind, self.timeout)
         except Exception, e:
-            raise Exception("invalid media specified")
+            self.database.log("error",
+                              "invalid media specified for job: %s" %\
+                              self.session_id)
             sys.exit(1)
 
         if self.proto not in self.transport_media.media_protocols():
-            raise Exception("protocol not supported by media")
+            self.database.log("error",
+                              "protocol not supported by media for job: %s" %\
+                              self.session_id)
             sys.exit(2)
 
         self.transport_media.media_protocol(self.proto)
@@ -171,13 +175,19 @@ class session(pgraph.graph):
         @param node: Node to add to session graph
         '''
 
-        node.number = len(self.nodes)
-        node.id     = len(self.nodes)
+        try:
+            node.number = len(self.nodes)
+            node.id     = len(self.nodes)
 
-        if not self.nodes.has_key(node.id):
-            self.nodes[node.id] = node
+            if not self.nodes.has_key(node.id):
+                self.nodes[node.id] = node
 
-        return self
+            return self
+        except Exception, ex:
+            self.database.log("error",
+                              "failed to add node for job: %s" %\
+                              self.session_id, 
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -192,8 +202,13 @@ class session(pgraph.graph):
         '''
 
         # add target 
-        self.transport_media.media_target(target)
-
+        try:
+            self.transport_media.media_target(target)
+        except Exception, ex:
+            self.database.log("error",
+                              "failed to set transport media target for job: %s" %\
+                              self.session_id,
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -384,16 +399,22 @@ class session(pgraph.graph):
         if not session_data: return
 
         # update the skip variable to pick up fuzzing from last test case.
-        self.skip                = session_data.get('total_mutant_index')
-        self.sleep_time          = session_data.get('sleep_time')
-        self.proto               = session_data.get('proto')
-        self.restart_interval    = session_data.get('restart_interval')
-        self.timeout             = session_data.get('timeout')
-        self.crash_count         = session_data.get('crashes')
-        self.warning_count       = session_data.get('warnings')
-        self.total_num_mutations = session_data.get('total_num_mutations')
-        self.total_mutant_index  = session_data.get('total_mutant_index')
-        self.pause_flag          = session_data.get('pause_flag')
+        try:
+            self.skip                = session_data.get('total_mutant_index')
+            self.sleep_time          = session_data.get('sleep_time')
+            self.proto               = session_data.get('proto')
+            self.restart_interval    = session_data.get('restart_interval')
+            self.timeout             = session_data.get('timeout')
+            self.crash_count         = session_data.get('crashes')
+            self.warning_count       = session_data.get('warnings')
+            self.total_num_mutations = session_data.get('total_num_mutations')
+            self.total_mutant_index  = session_data.get('total_mutant_index')
+            self.pause_flag          = session_data.get('pause_flag')
+        except Exception, ex:
+            self.database.log("error",
+                              "failed to process loaded session data for job: %s" %\
+                              self.session_id,
+                              str(ex))
 
     # -----------------------------------------------------------------------------------
     #
@@ -416,15 +437,13 @@ class session(pgraph.graph):
             if not self.transport_media.media_target():
                 self.database.log("error",
                                   "no target specified for job %s" %\
-                                  self.session_id,
-                                  str(ex))
+                                  self.session_id)
                 return
 
             if not self.edges_from(self.root.id):
                 self.database.log("error",
                                   "no request specified for job %s" %\
-                                  self.session_id,
-                                  str(ex))
+                                  self.session_id)
                 return
 
             this_node = self.root
@@ -488,15 +507,6 @@ class session(pgraph.graph):
             # one path through a set of given nodes we don't want any ambiguity.
             path.append(edge)
 
-            current_path  = " -> ".join([self.nodes[e.src].name for e in path[1:]])
-            current_path += " -> %s" % self.fuzz_node.name
-
-            if self.config['general']['debug'] > 1:
-                self.database.log("debug",
-                                  "%s: fuzz path: %s, fuzzed %d of %d total cases" %\
-                                  (self.session_id, current_path, self.total_mutant_index, 
-                                  self.total_num_mutations))
-
             done_with_fuzz_node = False
 
             # loop through all possible mutations of the fuzz node.
@@ -516,6 +526,8 @@ class session(pgraph.graph):
                                           "all possible mutations exhausted for job %s" %\
                                           self.session_id)
                     done_with_fuzz_node = True
+                    self.save_status()
+                    self.save_session()
                     continue
 
                 # make a record in the session that a mutation was made.
@@ -593,7 +605,10 @@ class session(pgraph.graph):
 
                     # done with the socket.
 
-                    self.transport_media.disconnect()
+                    try:
+                        self.transport_media.disconnect()
+                    except Exception, ex:
+                        pass
 
                     # serialize the current session state to disk.
 
@@ -689,9 +704,10 @@ class session(pgraph.graph):
         try:
             data = node.render()
         except Exception, ex:
+            self.database.log("error", "WTF?????????????????????") # TODO
             self.database.log("error",
-                              "failed to render node for transmit for job %s" %\
-                              self.session_id,
+                              "failed to render node (%s) for transmit for job %s" %\
+                              (node.s_type, self.session_id),
                               str(ex))
             return False
 
@@ -1022,5 +1038,4 @@ class session(pgraph.graph):
         self.agent_settings = None
 
         return
-
 

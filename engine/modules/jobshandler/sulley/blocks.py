@@ -575,21 +575,21 @@ class repeat:
         @param name:       (Optional, def=None) Specifying a name gives you direct access to a primitive
         '''
 
-        self.block_name    = block_name
-        self.request       = request
-        self.variable      = variable
-        self.min_reps      = min_reps
-        self.max_reps      = max_reps
-        self.step          = step
-        self.fuzzable      = fuzzable
-        self.name          = name
+        self.block_name         = block_name
+        self.request            = request
+        self.variable           = variable
+        self.min_reps           = min_reps
+        self.max_reps           = max_reps
+        self.step               = step
+        self.fuzzable           = fuzzable
+        self.name               = name
 
-        self.value         = self.original_value = ""   # default to nothing!
-        self.rendered      = ""                         # rendered value
-        self.fuzz_complete = False                      # flag if this primitive has been completely fuzzed
-        self.fuzz_library  = []                         # library of static fuzz heuristics to cycle through.
-        self.mutant_index  = 0                          # current mutation number
-        self.current_reps  = min_reps                   # current number of repetitions
+        self.value              = self.original_value = ""   # default to nothing!
+        self.rendered           = ""                         # rendered value
+        self.fuzz_complete      = False                      # flag if this primitive has been completely fuzzed
+        self.fuzz_library       = []                         # library of static fuzz heuristics to cycle through.
+        self.mutant_index       = 0                          # current mutation number
+        self.current_reps       = min_reps                   # current number of repetitions
 
         # ensure the target block exists.
         if self.block_name not in self.request.names:
@@ -600,9 +600,8 @@ class repeat:
             raise sex.SullyRuntimeError("REPEATER FOR BLOCK %s DOES NOT HAVE A MIN/MAX OR VARIABLE BINDING" % self.block_name)
 
         # if a variable is specified, ensure it is an integer type.
-        if self.variable and not isinstance(self.variable, primitives.bit_field):
-            print self.variable
-            raise sex.SullyRuntimeError("ATTEMPT TO BIND THE REPEATER FOR BLOCK %s TO A NON INTEGER PRIMITIVE" % self.block_name)
+        if self.variable and not type(self.variable) == str and not isinstance(self.variable, primitives.bit_field):
+            raise sex.SullyRuntimeError("ATTEMPT TO BIND THE REPEATER FOR BLOCK %s TO A NON-SUPPORTED PRIMITIVE" % self.block_name)
 
         # if not binding variable was specified, propogate the fuzz library with the repetition counts.
         if not self.variable:
@@ -675,6 +674,7 @@ class repeat:
             raise sex.SullyRuntimeError("CAN NOT APPLY REPEATER TO UNCLOSED BLOCK: %s" % self.block_name)
 
         # if a variable-bounding was specified then set the value appropriately.
+
         if self.variable:
             block      = self.request.closed_blocks[self.block_name]
             self.value = block.rendered * self.variable.value

@@ -204,6 +204,9 @@ def s_repeat (block_name, min_reps=0, max_reps=None, step=1, variable=None, fuzz
     repeat = blocks.repeat(block_name, blocks.CURRENT, min_reps, max_reps, step, variable, fuzzable, name)
     blocks.CURRENT.push(repeat)
 
+def s_padding(block_name, pad_byte=0x00, byte_align=4, max_reps=16, step=1, fuzzable=True, name=None):
+    padding = primitives.padding(block_name, blocks.CURRENT, pad_byte, byte_align, max_reps, step, fuzzable, name)
+    blocks.CURRENT.push(padding)
 
 def s_size (block_name, offset=0, length=4, endian="<", format="binary", synchsafe=False, inclusive=False, signed=False, math=None, fuzzable=False, name=None):
     '''
@@ -286,41 +289,20 @@ def s_static (value, name=None):
     static = primitives.static(value, name)
     blocks.CURRENT.push(static)
 
-def s_binary (value, name=None):
+def s_binary (value, fuzzable=False, name=None):
     '''
     Parse a variable format binary string into a static value and push it onto the current block stack.
 
-    @type  value: String
-    @param value: Variable format binary string
-    @type  name:  String
-    @param name:  (Optional, def=None) Specifying a name gives you direct access to a primitive
+    @type  value:    String
+    @param value:    Variable format binary string
+    @type  name:     String
+    @param name:     (Optional, def=None) Specifying a name gives you direct access to a primitive
+    @type  fuzzable: String
+    @param fuzzalbe: (def=False) False = no fuzzing, True = dumb fuzzing
     '''
 
-    n_value = ""
-
-    if type(value) == str:
-        # parse the binary string into.
-        parsed = value
-        parsed = parsed.replace(" ",   "")
-        parsed = parsed.replace("\t",  "")
-        parsed = parsed.replace("\r",  "")
-        parsed = parsed.replace("\n",  "")
-        parsed = parsed.replace(",",   "")
-        parsed = parsed.replace("0x",  "")
-        parsed = parsed.replace("\\x", "")
-
-        while parsed:
-            pair     = parsed[:2]
-            parsed   = parsed[2:]
-            n_value += chr(int(pair, 16))
-
-    if type(value) == list:
-        for byte_v in value:
-            n_value += chr(byte_v)
-
-    static = primitives.static(n_value, name)
-    blocks.CURRENT.push(static)
-
+    binary = primitives.binary(value, fuzzable, name)
+    blocks.CURRENT.push(binary)
 
 def s_delim (value, fuzzable=True, name=None):
     '''

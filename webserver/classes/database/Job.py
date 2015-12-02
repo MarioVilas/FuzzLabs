@@ -20,9 +20,10 @@ class Job(Base):
     conditions  = Column(Text)
     requests    = Column(Text)
     agent       = Column(Text)
-	
+
     # Job Status Information
     status      = Column(Integer)
+    node        = Column(Text)
     c_m_index   = Column(Integer)
     t_m_index   = Column(Integer)
     crashes     = Column(Integer)
