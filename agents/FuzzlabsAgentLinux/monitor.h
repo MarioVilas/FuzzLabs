@@ -8,6 +8,8 @@
 #ifndef MONITOR_H
 #define	MONITOR_H
 
+#include <dirent.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -27,6 +29,7 @@ class Monitor {
 private:
     int running;
     int pid;
+    bool do_attach;
     Status *p_status;
     char **p_args;
     char *p_full;
@@ -35,6 +38,7 @@ private:
     char **parseArgs(char *str);
 public:
     Monitor();
+    ~Monitor();
     int setTarget(char *cmd_line);
     int start();
     void stop();

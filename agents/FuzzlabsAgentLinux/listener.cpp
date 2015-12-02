@@ -74,7 +74,10 @@ int handle_command_kill(Connection *conn, Monitor *monitor) {
         } else {
             conn->transmit("{\"command\": \"kill\", \"data\": \"failed\"}", 37);
         }
+    } else {
+        conn->transmit("{\"command\": \"kill\", \"data\": \"failed\"}", 37);
     }
+    return(0);
 }
 
 // ----------------------------------------------------------------------------
@@ -83,6 +86,7 @@ int handle_command_kill(Connection *conn, Monitor *monitor) {
 
 int handle_command_ping(Connection *conn) {
     conn->transmit("{\"command\": \"ping\", \"data\": \"pong\"}", 35);
+    return(0);
 }
 
 // ----------------------------------------------------------------------------

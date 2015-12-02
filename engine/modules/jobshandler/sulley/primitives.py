@@ -5,7 +5,10 @@ import zlib
 import copy
 import sex
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class base_primitive (object):
     '''
     The primitive base class implements common functionality shared across most primitives.
@@ -19,7 +22,6 @@ class base_primitive (object):
         self.original_value = None      # original value of primitive.
         self.rendered       = ""        # rendered value of primitive.
         self.value          = None      # current value of primitive.
-
 
     def exhaust (self):
         '''
@@ -36,7 +38,6 @@ class base_primitive (object):
         self.value          = self.original_value
 
         return num
-
 
     def mutate (self):
         '''
@@ -63,7 +64,6 @@ class base_primitive (object):
 
         return True
 
-
     def num_mutations (self):
         '''
         Calculate and return the total number of mutations for this individual primitive.
@@ -74,7 +74,6 @@ class base_primitive (object):
 
         return len(self.fuzz_library)
 
-
     def render (self):
         '''
         Nothing fancy on render, simply return the value.
@@ -82,7 +81,6 @@ class base_primitive (object):
 
         self.rendered = self.value
         return self.rendered
-
 
     def reset (self):
         '''
@@ -93,8 +91,10 @@ class base_primitive (object):
         self.mutant_index   = 0
         self.value          = self.original_value
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class delim (base_primitive):
     def __init__ (self, value, fuzzable=True, name=None):
         '''
@@ -179,8 +179,10 @@ class delim (base_primitive):
         self.fuzz_library.append("\r\n" * 128)
         self.fuzz_library.append("\r\n" * 512)
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class group (base_primitive):
     def __init__ (self, name, values):
         '''
@@ -246,8 +248,10 @@ class group (base_primitive):
 
         return len(self.values)
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class random_data (base_primitive):
     def __init__ (self, value, min_length, max_length, max_mutations=25, fuzzable=True, step=None, name=None):
         '''
@@ -333,7 +337,10 @@ class random_data (base_primitive):
         return self.max_mutations
 
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class static (base_primitive):
     def __init__ (self, value, name=None):
         '''
@@ -375,7 +382,10 @@ class static (base_primitive):
 
         return 0
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class binary (base_primitive):
     def __init__ (self, value, fuzzable, name=None):
         self.name           = name
@@ -492,7 +502,10 @@ class binary (base_primitive):
             self.rendered += chr(r_byte)
         return self.rendered
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class string (base_primitive):
     # store fuzz_library as a class variable to avoid copying the ~70MB structure across each instantiated primitive.
     fuzz_library = []
@@ -762,8 +775,10 @@ class string (base_primitive):
 
         return self.rendered
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class bit_field (base_primitive):
     def __init__ (self, value, width, max_num=None, endian="<", format="binary", signed=False, full_range=False, fuzzable=True, name=None, synchsafe=False):
         '''
@@ -1003,7 +1018,10 @@ class bit_field (base_primitive):
 
         return int(binary, 2)
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class byte (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "byte"
@@ -1012,8 +1030,10 @@ class byte (bit_field):
 
         bit_field.__init__(self, value, 8, None, endian, format, signed, full_range, fuzzable, name, synchsafe)
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class word (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "word"
@@ -1022,8 +1042,10 @@ class word (bit_field):
 
         bit_field.__init__(self, value, 16, None, endian, format, signed, full_range, fuzzable, name, synchsafe)
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class dword (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "dword"
@@ -1032,8 +1054,10 @@ class dword (bit_field):
 
         bit_field.__init__(self, value, 32, None, endian, format, signed, full_range, fuzzable, name, synchsafe)
 
+# =============================================================================
+#
+# =============================================================================
 
-########################################################################################################################
 class qword (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "qword"
@@ -1042,7 +1066,10 @@ class qword (bit_field):
 
         bit_field.__init__(self, value, 64, None, endian, format, signed, full_range, fuzzable, name, synchsafe)
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class bitfield (base_primitive):
     '''
     Create a bitfield which defines a value as fields of bits.
@@ -1235,7 +1262,10 @@ class bitfield (base_primitive):
 
         return self.rendered
 
-########################################################################################################################
+# =============================================================================
+#
+# =============================================================================
+
 class padding:
 
     def __init__ (self, block_name, request, pad_byte=0x00, byte_align=4, max_reps=16, step=1, fuzzable=True, name=None):
