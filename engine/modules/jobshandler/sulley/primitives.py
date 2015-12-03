@@ -118,6 +118,13 @@ class delim (base_primitive):
         self.fuzz_library  = []        # library of fuzz heuristics
         self.mutant_index  = 0         # current mutation number
 
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a value" % self.s_type)
+        if not type(value) is str:
+            raise sex.SullyRuntimeError("'%s' primitive value has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive has invalid value for parameter 'fuzzable'" % self.s_type)
+
         #
         # build the library of fuzz heuristics.
         #
@@ -201,6 +208,14 @@ class group (base_primitive):
         self.fuzzable       = True
 
         self.s_type         = "group"
+
+        if not name:
+            raise sex.SullyRuntimeError("'%s' primitive requires a name" % self.s_type)
+        if not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if not type(values) is list:
+            raise sex.SullyRuntimeError("'%s' primitive requires values to be of type list" % self.s_type)
+
         self.value          = self.values[0]
         self.original_value = self.values[0]
         self.rendered       = ""
@@ -283,6 +298,22 @@ class random_data (base_primitive):
         self.name          = name
 
         self.s_type        = "random_data"  # for ease of object identification
+
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a default value" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if min_length and not type(min_length) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires min_length to be of type int" % self.s_type)
+        if max_length and not type(max_length) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires max_length to be of type int" % self.s_type)
+        if max_mutations and not type(max_mutations) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires max_mutations to be of type int" % self.s_type)
+        if step and not type(step) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires max_mutations to be of type int" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+
         self.rendered      = ""             # rendered value
         self.fuzz_complete = False          # flag if this primitive has been completely fuzzed
         self.mutant_index  = 0              # current mutation number
@@ -360,6 +391,12 @@ class static (base_primitive):
         self.rendered      = ""
         self.fuzz_complete = True
 
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a default value" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if value and not type(value) is str:
+            raise sex.SullyRuntimeError("'%s' primitive value has to be of type str" % self.s_type)
 
     def mutate (self):
         '''
@@ -398,13 +435,18 @@ class binary (base_primitive):
         self.original_value = copy.deepcopy(value)
         self.value          = []
 
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a default value" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+
         if type(value) is list:
             self.value      = copy.deepcopy(value)
         elif type(value) is str:
             for byte_val in value:
                 self.value.append(struct.unpack("B", byte_val)[0])
         else:
-            assert(type(value) is list or type(value) is str), 'value has to be a list of bytes or string'
+            raise sex.SullyRuntimeError("'%s' primitive value has to be of type list or str" % self.s_type)
 
         self.rendered       = ""
 
@@ -478,21 +520,19 @@ class binary (base_primitive):
         if self.mutant_index == self.num_mutations():
             self.value = copy.deepcopy(self.original_value)
             self.fuzz_complete = True
-            return True
+            return False
 
         if self.byte_replace():
             return True
         return self.integer_tests()
 
     def num_mutations (self):
-        mutations = 0
-        mutations += (len(self.original_value) * 4)
+        # calculate the mutations for single-byte mutations.
+        mutations = (len(self.original_value) * len(self.payloads))
+
+        # update the number of mutations additional test cases
         for position in range(0, len(self.original_value)):
             for edge_case in self.edge_cases:
-                if len(edge_case) +\
-                   len(self.original_value[0:position]) +\
-                   len(self.original_value[position+len(edge_case):len(self.original_value)]) > len(self.original_value):
-                    continue
                 mutations += 1
         return mutations
 
@@ -547,6 +587,23 @@ class string (base_primitive):
         self.rendered      = ""        # rendered value
         self.fuzz_complete = False     # flag if this primitive has been completely fuzzed
         self.mutant_index  = 0         # current mutation number
+
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a default value" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if not type(size) is int:
+            raise sex.SullyRuntimeError("'%s' primitive size has to be of type int" % self.s_type)
+        if not type(padding) is str:
+            raise sex.SullyRuntimeError("'%s' primitive padding has to be of type str" % self.s_type)
+        if not type(encoding) is str:
+            raise sex.SullyRuntimeError("'%s' primitive encoding has to be of type str" % self.s_type)
+        if compression and not type(compression) is str:
+            raise sex.SullyRuntimeError("'%s' primitive compression has to be of type str" % self.s_type)
+        if not type(max_len) is int:
+            raise sex.SullyRuntimeError("'%s' primitive max_len has to be of type int" % self.s_type)
 
         # add this specific primitives repitition values to the unique fuzz library.
         self.this_library = \
@@ -804,7 +861,28 @@ class bit_field (base_primitive):
         @param synchsafe: (Optional, def=False) Synchsafe (https://en.wikipedia.org/wiki/Synchsafe)
         '''
 
-        assert(type(width) is int or type(value) is long)
+        self.s_type = "bit_field"
+
+        if not type(value) is long and not type(value) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires value to be of type long, got: %s" % (self.s_type, str(type(value))))
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if not type(width) is int:
+            raise sex.SullyRuntimeError("'%s' primitive width has to be of type int" % self.s_type)
+        if max_num and not type(max_num) is int:
+            raise sex.SullyRuntimeError("'%s' primitive max_len has to be of type int" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' primitive endian has to be of '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' primitive format has to be of type str" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires signed to be of type boolean" % self.s_type)
+        if full_range != True and full_range != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires full_range to be of type boolean" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires synchsafe to be of type boolean" % self.s_type)
 
         if type(value) in [int, long, list, tuple]:
             # TODO: synchsafe each item here overwriting value
@@ -1025,6 +1103,22 @@ class bit_field (base_primitive):
 class byte (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "byte"
+
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' primitive endian has to be of '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' primitive format has to be of type str" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires signed to be of type boolean" % self.s_type)
+        if full_range != True and full_range != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires full_range to be of type boolean" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires synchsafe to be of type boolean" % self.s_type)
+
         if type(value) not in [int, long, list, tuple]:
             value       = struct.unpack(endian + "B", value)[0]
 
@@ -1037,6 +1131,22 @@ class byte (bit_field):
 class word (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "word"
+
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' primitive endian has to be of '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' primitive format has to be of type str" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires signed to be of type boolean" % self.s_type)
+        if full_range != True and full_range != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires full_range to be of type boolean" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires synchsafe to be of type boolean" % self.s_type)
+
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "H", value)[0]
 
@@ -1049,6 +1159,22 @@ class word (bit_field):
 class dword (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "dword"
+
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' primitive endian has to be of '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' primitive format has to be of type str" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires signed to be of type boolean" % self.s_type)
+        if full_range != True and full_range != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires full_range to be of type boolean" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires synchsafe to be of type boolean" % self.s_type)
+
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "L", value)[0]
 
@@ -1061,6 +1187,22 @@ class dword (bit_field):
 class qword (bit_field):
     def __init__ (self, value, endian="<", format="binary", synchsafe=False, signed=False, full_range=False, fuzzable=True, name=None):
         self.s_type  = "qword"
+
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' primitive endian has to be of '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' primitive format has to be of type str" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires signed to be of type boolean" % self.s_type)
+        if full_range != True and full_range != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires full_range to be of type boolean" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires synchsafe to be of type boolean" % self.s_type)
+
         if type(value) not in [int, long, list, tuple]:
             value = struct.unpack(endian + "Q", value)[0]
 
@@ -1108,6 +1250,17 @@ class bitfield (base_primitive):
         self.s_type              = "bitfield"   # for ease of object identification
         self.rendered            = ""
         self.fuzzable            = fuzzable
+
+        if not value:
+            raise sex.SullyRuntimeError("'%s' primitive requires a default value" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if not type(length) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires length to be of type int" % self.s_type)
+        if not type(fields) is list:
+            raise sex.SullyRuntimeError("'%s' primitive requires fields to be of type list" % self.s_type)
 
         for field in fields:
             if not field.get("fuzzable"):
@@ -1285,6 +1438,19 @@ class padding:
         self.fuzz_library       = []                         # library of static fuzz heuristics to cycle through.
         self.mutant_index       = 0                          # current mutation number
 
+        if not block_name:
+            raise sex.SullyRuntimeError("'%s' primitive requires a block_name" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' primitive name has to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' primitive requires fuzzable to be of type boolean" % self.s_type)
+        if not type(byte_align) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires byte_align to be of type int" % self.s_type)
+        if not type(max_reps) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires max_reps to be of type int" % self.s_type)
+        if not type(step) is int:
+            raise sex.SullyRuntimeError("'%s' primitive requires step to be of type int" % self.s_type)
+
         for p_round in range(0, (max_reps / step)):
             self.fuzz_library.append(struct.pack("B", self.pad_byte) * step)
 
@@ -1314,9 +1480,9 @@ class padding:
         try:
             block = self.request.closed_blocks[self.block_name].rendered
         except KeyError, kex:
-            raise sex.SullyRuntimeError("PADDING COULD NOT FIND CLOSED BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(kex)))
+            raise sex.SullyRuntimeError("padding primitive could not find closed block '%s', exception: %s" % (self.block_name, str(kex)))
         except Exception, ex:
-            raise sex.SullyRuntimeError("PADDING COULD NOT PROCESS BLOCK: %s, EXCEPTION: %s" % (self.block_name, str(ex)))
+            raise sex.SullyRuntimeError("padding primitive could not process block '%s', exception: %s" % (self.block_name, str(ex)))
 
         block_length = len(block)
         add_bytes = (self.byte_align - (block_length % self.byte_align)) % self.byte_align

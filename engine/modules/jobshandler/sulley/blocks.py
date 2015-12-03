@@ -218,6 +218,13 @@ class block:
         self.dep_value     = dep_value
         self.dep_values    = dep_values
         self.dep_compare   = dep_compare
+        self.s_type        = "block"
+
+        if not name:
+            raise sex.SullyRuntimeError("'%s' requires a name" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' name has to be of type str" % self.s_type)
+
 
         self.stack         = []     # block item stack.
         self.rendered      = ""     # rendered block contents.
@@ -471,6 +478,18 @@ class checksum:
         self.length     = length
         self.endian     = endian
         self.name       = name
+        self.s_type     = "checksum"
+
+        if not block_name:
+            raise sex.SullyRuntimeError("'%s' requires a block_name" % self.s_type)
+        if block_name and not type(block_name) is str:
+            raise sex.SullyRuntimeError("'%s' requires block_name to be of type str" % self.s_type)
+        if algorithm and not type(algorithm) is str:
+            raise sex.SullyRuntimeError("'%s' requires algorithm to be of type str" % self.s_type)
+        if length and not type(length) is int:
+            raise sex.SullyRuntimeError("'%s' requires length to be of type int" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' requires endian to be '>' or '<'" % self.s_type)
 
         self.rendered   = ""
         self.fuzzable   = False
@@ -592,6 +611,21 @@ class repeat:
         self.step               = step
         self.fuzzable           = fuzzable
         self.name               = name
+        self.s_type             = "repeat"
+
+        if not block_name:
+            raise sex.SullyRuntimeError("'%s' requires a block_name" % self.s_type)
+        if block_name and not type(block_name) is str:
+            raise sex.SullyRuntimeError("'%s' requires block_name to be of type str" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' requires name to be of type str" % self.s_type)
+        if not type(min_reps) is int:
+            raise sex.SullyRuntimeError("'%s' requires min_reps to be of type int" % self.s_type)
+        if not type(step) is int:
+            raise sex.SullyRuntimeError("'%s' requires step to be of type int" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' requires fuzzable to be of type boolean" % self.s_type)
+
 
         self.value              = self.original_value = ""   # default to nothing!
         self.rendered           = ""                         # rendered value
@@ -754,6 +788,30 @@ class size:
         self.fuzzable      = fuzzable
         self.name          = name
         self.synchsafe     = synchsafe
+        self.s_type        = "size"
+
+        if not block_name:
+            raise sex.SullyRuntimeError("'%s' requires a block_name" % self.s_type)
+        if block_name and not type(block_name) is str:
+            raise sex.SullyRuntimeError("'%s' requires block_name to be of type str" % self.s_type)
+        if name and not type(name) is str:
+            raise sex.SullyRuntimeError("'%s' requires name to be of type str" % self.s_type)
+        if fuzzable != True and fuzzable != False:
+            raise sex.SullyRuntimeError("'%s' requires fuzzable to be of type boolean" % self.s_type)
+        if not type(offset) is int:
+            raise sex.SullyRuntimeError("'%s' requires offset to be of type int" % self.s_type)
+        if not type(length) is int:
+            raise sex.SullyRuntimeError("'%s' requires length to be of type int" % self.s_type)
+        if endian != ">" and endian != "<":
+            raise sex.SullyRuntimeError("'%s' requires endian to be '>' or '<'" % self.s_type)
+        if not type(format) is str:
+            raise sex.SullyRuntimeError("'%s' requires format to be of type str" % self.s_type)
+        if synchsafe != True and synchsafe != False:
+            raise sex.SullyRuntimeError("'%s' requires synchsafe to be of type boolean" % self.s_type)
+        if inclusive != True and inclusive != False:
+            raise sex.SullyRuntimeError("'%s' requires inclusive to be of type boolean" % self.s_type)
+        if signed != True and signed != False:
+            raise sex.SullyRuntimeError("'%s' requires signed to be of type boolean" % self.s_type)
 
         self.original_value = "N/A"    # for get_primitive
         self.s_type         = "size"   # for ease of object identification
