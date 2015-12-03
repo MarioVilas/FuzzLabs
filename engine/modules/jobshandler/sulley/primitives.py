@@ -680,40 +680,13 @@ class string (base_primitive):
                 "<>" * 500,         # sendmail crackaddr (http://lsd-pl.net/other/sendmail.txt)
             ]
 
-            # add some long strings.
-            self.add_long_strings("A")
-            self.add_long_strings("B")
-            self.add_long_strings("1")
-            self.add_long_strings("2")
-            self.add_long_strings("3")
-            self.add_long_strings("<")
-            self.add_long_strings(">")
-            self.add_long_strings("'")
-            self.add_long_strings("\"")
-            self.add_long_strings("/")
-            self.add_long_strings("\\")
-            self.add_long_strings("?")
-            self.add_long_strings("=")
-            self.add_long_strings("a=")
-            self.add_long_strings("&")
-            self.add_long_strings(".")
-            self.add_long_strings(",")
-            self.add_long_strings("(")
-            self.add_long_strings(")")
-            self.add_long_strings("]")
-            self.add_long_strings("[")
-            self.add_long_strings("%")
-            self.add_long_strings("*")
-            self.add_long_strings("-")
-            self.add_long_strings("+")
-            self.add_long_strings("{")
-            self.add_long_strings("}")
-            self.add_long_strings("%s")
-            self.add_long_strings("%d")
-            self.add_long_strings("%n")
-            self.add_long_strings("\x14")
-            self.add_long_strings("\xFE")   # expands to 4 characters under utf16
-            self.add_long_strings("\xFF")   # expands to 4 characters under utf16
+            # Add some long strings
+            longs = ["A", "B", "1", "2", "3", "<", ">", "'", "\"", "/", "\\", "?",
+                     "=", "a=", "&", ".", ",", "(", ")", "]", "[", "%", "*", "-",
+                     "_", "+", "{", "}", "%s", "%d", "%n", "\x14", "\xFE", "\xFF"]
+
+            for to_long in longs:
+                self.add_long_strings(to_long)
 
             # add some long strings with null bytes thrown in the middle of it.
             for length in [128, 256, 1024, 2048, 4096, 10000, 15000, 20000, 25000, 32767, 50000, 0xFFFF]:
