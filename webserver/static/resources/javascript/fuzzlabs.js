@@ -193,6 +193,7 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
     var factory = {};
 
     var fetching = false;
+    var jobsPromise;
     var jobs = [];
 
     factory.fetch_jobs = function() {
@@ -230,7 +231,11 @@ fuzzlabsApp.factory('JobsService', ['$interval', '$http', function($interval, $h
         return(jobs);
     }
 
-    $interval(function() {
+    factory.stop_jobs_fetch = function() {
+        $interval.cancel(jobsPromise);
+    }
+
+    jobsPromise = $interval(function() {
         if (fetching == false) {
             fetching = true;
             factory.fetch_jobs();
@@ -330,6 +335,8 @@ fuzzlabsApp.controller('appInitCtrl', ['$scope', '$state', 'EnginesService', fun
 
 fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'EnginesService', function ($state, $scope, $interval, EnginesService) {
 
+    var enginesPromise;
+
     $scope.addNewEngine = function(clickEvent) {
         $state.go("Modal.addNewEngine");
     };
@@ -346,7 +353,7 @@ fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'Engines
         EnginesService.deleteEngine(e_name);
     };
 
-    $interval(function() { 
+    enginesPromise = $interval(function() { 
         $.ajax({
             url: "/api/engine",
             type: "GET",
@@ -363,6 +370,8 @@ fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'Engines
         });
     }, 1000);
 
+    $scope.$on('$destroy', function() { $interval.cancel(enginesPromise); });
+
 }]);
 
 // -----------------------------------------------------------------------------
@@ -370,6 +379,8 @@ fuzzlabsApp.controller('enginesCtrl', ['$state', '$scope', '$interval', 'Engines
 // -----------------------------------------------------------------------------
 
 fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsService', function ($state, $scope, $interval, JobsService) {
+
+    var jobsPromise;
 
     $scope.startJob = function(clickEvent) {
         var target = clickEvent.currentTarget;
@@ -406,10 +417,15 @@ fuzzlabsApp.controller('jobsCtrl', ['$state', '$scope', '$interval', 'JobsServic
         JobsService.stop_job(engine_id, job_id);
     };
 
-    $interval(function() {
+    jobsPromise = $interval(function() {
         var jobs_list = JobsService.get_jobs();
         $scope.jobs = jobs_list;
     }, 500);
+
+    $scope.$on('$destroy', function() { 
+        JobsService.stop_jobs_fetch();
+        $interval.cancel(jobsPromise); 
+    });
 
 }]);
 
@@ -434,16 +450,20 @@ fuzzlabsApp.controller('issueCtrl', ['$state', '$scope', '$http', '$stateParams'
 
 fuzzlabsApp.controller('issuesCtrl', ['$state', '$scope', '$interval', 'IssuesService', function ($state, $scope, $interval, IssuesService) {
 
+    var issuesPromise;
+
     $scope.deleteIssue = function(clickEvent) {
         var target = clickEvent.currentTarget;
         var issue_id = $(target).attr('issue_id');
         IssuesService.delete_issue(issue_id);
     };
 
-    $interval(function() {
+    issuesPromise = $interval(function() {
         var issues_list = IssuesService.get_issues();
         $scope.issues = issues_list;
     }, 1000);
+
+    $scope.$on('$destroy', function() { $interval.cancel(issuesPromise); });
 
 }]);
 
