@@ -14,45 +14,16 @@
 
 (function($, undefined){
     
-    // TODO: -
-        // ARIA stuff: menuitem, menuitemcheckbox und menuitemradio
-        // create <menu> structure if $.support[htmlCommand || htmlMenuitem] and !opt.disableNative
-
-// determine html5 compatibility
 $.support.htmlMenuitem = ('HTMLMenuItemElement' in window);
 $.support.htmlCommand = ('HTMLCommandElement' in window);
 $.support.eventSelectstart = ("onselectstart" in document.documentElement);
-/* // should the need arise, test for css user-select
-$.support.cssUserSelect = (function(){
-    var t = false,
-        e = document.createElement('div');
-    
-    $.each('Moz|Webkit|Khtml|O|ms|Icab|'.split('|'), function(i, prefix) {
-        var propCC = prefix + (prefix ? 'U' : 'u') + 'serSelect',
-            prop = (prefix ? ('-' + prefix.toLowerCase() + '-') : '') + 'user-select';
-            
-        e.style.cssText = prop + ': text;';
-        if (e.style[propCC] == 'text') {
-            t = true;
-            return false;
-        }
-        
-        return true;
-    });
-    
-    return t;
-})();
-*/
 
 if (!$.ui || !$.ui.widget) {
-    // duck punch $.cleanData like jQueryUI does to get that remove event
-    // https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L16-24
     var _cleanData = $.cleanData;
     $.cleanData = function( elems ) {
         for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
             try {
                 $( elem ).triggerHandler( "remove" );
-                // http://bugs.jquery.com/ticket/8235
             } catch( e ) {}
         }
         _cleanData( elems );
@@ -244,7 +215,7 @@ var // currently active contextMenu trigger
                     e.data = $.extend(true, {}, defaults, e.data, built || {});
 
                     // abort if there are no items to display
-                    if (!e.data.items || $.isEmptyObject(e.data.items)) {
+                    if (!e.data.items() || $.isEmptyObject(e.data.items())) {
                         // Note: jQuery captures and ignores errors from event handlers
                         if (window.console) {
                             (console.error || console.log)("No items specified to show in contextMenu");
@@ -717,7 +688,7 @@ var // currently active contextMenu trigger
                 callback;
 
             // abort if the key is unknown or disabled or is a menu
-            if (!opt.items[key] || $this.is('.disabled, .context-menu-submenu, .context-menu-separator, .not-selectable')) {
+            if (!opt.items()[key] || $this.is('.disabled, .context-menu-submenu, .context-menu-separator, .not-selectable')) {
                 return;
             }
 
@@ -934,7 +905,10 @@ var // currently active contextMenu trigger
             root.accesskeys || (root.accesskeys = {});
             
             // create contextMenu items
-            $.each(opt.items, function(key, item){
+			// 
+			// UPDATE (keymandll): made opt.items -> opt.items() this way we can provide a function
+			// that can return with a custom set of items.
+            $.each(opt.items(), function(key, item){
                 var $t = $('<li class="context-menu-item"></li>').addClass(item.className || ""),
                     $label = null,
                     $input = null;
@@ -1059,7 +1033,9 @@ var // currently active contextMenu trigger
                                 }
                             });
                             // FIXME: shouldn't this .html() be a .text()?
-                            $('<span></span>').html(item._name || item.name || "").appendTo($t);
+                            $('<p></p>', {
+								"class": item.class_name
+							}).html(item._name || item.name || "").appendTo($t);
                             break;
                     }
                     
@@ -1144,7 +1120,7 @@ var // currently active contextMenu trigger
             opt.$menu.children().each(function(){
                 var $item = $(this),
                     key = $item.data('contextMenuKey'),
-                    item = opt.items[key],
+                    item = opt.items()[key],
                     disabled = ($.isFunction(item.disabled) && item.disabled.call($trigger, key, root)) || item.disabled === true;
 
                 // dis- / enable item
@@ -1276,7 +1252,7 @@ $.contextMenu = function(operation, options) {
             if (o.selector.match(/.context-menu-(list|item|input)($|\s)/)) {
                 throw new Error('Cannot bind to selector "' + o.selector + '" as it contains a reserved className');
             }
-            if (!o.build && (!o.items || $.isEmptyObject(o.items))) {
+            if (!o.build && (!o.items() || $.isEmptyObject(o.items()))) {
                 throw new Error('No Items specified');
             }
             counter ++;
@@ -1658,7 +1634,7 @@ function menuChildren(items, $children, counter) {
         
         if (item) {
             counter++;
-            items['key' + counter] = item;
+            items()['key' + counter] = item;
         }
     });
     

@@ -1,6 +1,9 @@
+<link href="/resources/stylesheet/editor.css" rel="stylesheet">
+<script src="/resources/javascript/jquery.contextMenu.js"></script>
 <script src="/resources/javascript/editor.js"></script>
 <div class="container" ng-controller="issueCtrl">
-    <legend>{{issue.data.info.job.name}}</legend>
+    <div id="payload_holder" payload="{{issue.data.payload}}"></div>
+    <legend>{{issue.data.info.job.name}} - Issue ID: #{{issue.data.id}}</legend>
     <div class="row">
     <div class="col-md-4">
         <div>
@@ -29,8 +32,8 @@
         </div>
     </div>
     <div class="col-md-8">
-        <div class="editor">
 
+        <div class="editor">
             <div id="editor_tabs">
                 <ul>
                     <li><a href="#tabs-1">Hex</a></li>
@@ -38,24 +41,34 @@
                     <li><a href="#tabs-3">C</a></li>
                 </ul>
                 <div id="tabs-1">
+                    <div class="editor_page clearfix" id="editor_hex_wrapper"></div>
                 </div>
                 <div id="tabs-2">
+                    <div class="editor_page clearfix" id="editor_python_wrapper"></div>
                 </div>
                 <div id="tabs-3">
+                    <div class="editor_page clearfix" id="editor_c_wrapper"></div>
+                </div>
+                <div class="editor_status">
+                    <div class="progress editor-load-progress">
+                        <div class="progress-bar progress-bar-danger editor-load-progress editor-load-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
+                            <span class="sr-only"></span>
+                        </div>
+                    </div>
+                    <div class="status clearfix">
+                        <div class="editor_info">
+                            <div class="editor_info_item" id="offset_info"></div>
+                            <div class="editor_info_item" id="byte_info_hex"></div>
+                            <div class="editor_info_item" id="byte_info_dec"></div>
+                            <div class="editor_info_item" id="byte_info_raw"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-        </div>
     </div>
     </div>
 
-    <div class="row">
-        <div class="section_comments">
-            Comments
-        </div>
-        <div class="issue_comments">
-            <textarea></textarea>
-        </div>
-    </div>
 </div>
 
