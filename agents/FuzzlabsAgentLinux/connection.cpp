@@ -28,6 +28,7 @@ size_t Connection::receive(char *data) {
         length = recv(sock, buffer, RECV_BUFFER_SIZE - 1, 0);
         if (length == -1 || length == 0) break;
         if (total + length > RECV_MAX_MSG_SIZE * 1048576) {
+            if (data != NULL) free(data);
             throw "Connection::receive(): invalid message size";
         }
         data = (char *)realloc(data, total + length);

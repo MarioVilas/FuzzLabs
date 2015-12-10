@@ -167,7 +167,7 @@ int handle_command_start(Connection *conn, Monitor *monitor, Message *msg) {
 //
 // ----------------------------------------------------------------------------
 
-void process_command(Connection *conn, Monitor *monitor, char *data, size_t data_len) {
+void process_command(Connection *conn, Monitor *monitor, char *data) {
     Message *message = NULL;
     if (data == NULL) return;
     message = get_command(data);
@@ -176,7 +176,6 @@ void process_command(Connection *conn, Monitor *monitor, char *data, size_t data
     syslog(LOG_INFO, "command received from %s: %s", conn->address(),
                 message->command);
     
-    //
     if (!strcmp(message->command, "ping")) {
         handle_command_ping(conn);
     } else if (!strcmp(message->command, "kill")) {
@@ -189,9 +188,6 @@ void process_command(Connection *conn, Monitor *monitor, char *data, size_t data
     
     if (message->j_data != NULL) cJSON_Delete(message->j_data);
     free(message);
-    memset(data, 0, data_len);
-    free(data);
-    data = NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -210,7 +206,10 @@ static void *handle_connection(void *c) {
         try {
             r_len = conn->receive(data);
             if (r_len < 1) continue;
-            process_command(conn, monitor, data, r_len);
+            process_command(conn, monitor, data);
+            memset(data, 0, r_len);
+            free(data);
+            data = NULL;
         } catch(char *ex) {
             syslog(LOG_ERR, "%s", ex);
             continue;
