@@ -18,9 +18,6 @@ int Connection::transmit(char *data, unsigned int len) {
     return send(sock, data, len, 0);
 }
 
-// THIS ISN'T WORKING THE WAY I WANTED. LOL
-// SHOULD READ UNTIL NEWLINE
-
 char *Connection::receive(char *data) {
     size_t total = 0;
     size_t length = 0;
