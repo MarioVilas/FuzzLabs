@@ -11,13 +11,15 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include <syslog.h>
 
 #ifndef CONNECTION_H
 #define	CONNECTION_H
 
-#define RECV_BUFFER_SIZE    4096
+#define RECV_BUFFER_SIZE    4096    // In KB
+#define RECV_MAX_MSG_SIZE   4       // In MB
 
 class Connection {
 private:
@@ -30,7 +32,7 @@ public:
     void terminate();
     char *address();
     int transmit(char *data, unsigned int len);
-    int receive(char *data);
+    size_t receive(char *data);
 };
 
 #endif	/* CONNECTION_H */

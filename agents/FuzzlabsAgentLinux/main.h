@@ -26,16 +26,5 @@
 
 #define AGENT_DEFAULT_PORT      27000
 
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
-
-
-
-#ifdef	__cplusplus
-}
-#endif
-
 #endif	/* MAIN_H */
 

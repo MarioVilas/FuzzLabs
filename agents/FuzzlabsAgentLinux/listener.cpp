@@ -167,10 +167,11 @@ int handle_command_start(Connection *conn, Monitor *monitor, Message *msg) {
 //
 // ----------------------------------------------------------------------------
 
-unsigned int process_command(Connection *conn, Monitor *monitor, char *data) {
+void process_command(Connection *conn, Monitor *monitor, char *data, size_t data_len) {
     Message *message = NULL;
+    if (data == NULL) return;
     message = get_command(data);
-    if (message == NULL) return(0);
+    if (message == NULL) return;
 
     syslog(LOG_INFO, "command received from %s: %s", conn->address(),
                 message->command);
@@ -188,6 +189,9 @@ unsigned int process_command(Connection *conn, Monitor *monitor, char *data) {
     
     if (message->j_data != NULL) cJSON_Delete(message->j_data);
     free(message);
+    memset(data, 0, data_len);
+    free(data);
+    data = NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -195,22 +199,26 @@ unsigned int process_command(Connection *conn, Monitor *monitor, char *data) {
 // ----------------------------------------------------------------------------
 
 static void *handle_connection(void *c) {
-    unsigned int r_len = 1;
+    size_t r_len = 1;
     Monitor *monitor = new Monitor();
     Connection *conn = (Connection *)c;
-    char *data = (char *)malloc(RECV_BUFFER_SIZE);
+    char *data = NULL;
     
     syslog(LOG_INFO, "accepted connection from engine: %s", conn->address());
 
     while(r_len != 0) {
-        r_len = conn->receive(data);
-        if (r_len < 1) continue;
-        process_command(conn, monitor, data);
+        try {
+            r_len = conn->receive(data);
+            if (r_len < 1) continue;
+            process_command(conn, monitor, data, r_len);
+        } catch(char *ex) {
+            syslog(LOG_ERR, "%s", ex);
+            continue;
+        }
     }
 
     syslog(LOG_INFO, "disconnected from engine: %s", conn->address());
-    memset(data, 0x00, RECV_BUFFER_SIZE);
-    free(data);
+
     if (monitor != NULL) {
         monitor->terminate();
         monitor->stop();

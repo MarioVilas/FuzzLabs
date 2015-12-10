@@ -5,3 +5,4 @@
 *.db
 webserver/etc/ssl
 webserver/static/resources/javascript/bower
+agents/FuzzlabsAgentLinux/dist

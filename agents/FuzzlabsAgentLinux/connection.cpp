@@ -18,11 +18,27 @@ int Connection::transmit(char *data, unsigned int len) {
     return send(sock, data, len, 0);
 }
 
-int Connection::receive(char *data) {
+size_t Connection::receive(char *data) {
+    size_t total = 0;
     size_t length = 0;
-
-    memset(data, 0x00, RECV_BUFFER_SIZE);    
-    return(recv(sock, data, RECV_BUFFER_SIZE - 1, MSG_DONTWAIT));
+    char buffer[RECV_BUFFER_SIZE];
+    
+    while (true) {
+        memset(buffer, 0x00, RECV_BUFFER_SIZE);
+        length = recv(sock, buffer, RECV_BUFFER_SIZE - 1, 0);
+        if (length == -1 || length == 0) break;
+        if (total + length > RECV_MAX_MSG_SIZE * 1048576) {
+            throw "Connection::receive(): invalid message size";
+        }
+        data = (char *)realloc(data, total + length);
+        if (data == NULL) {
+            throw "Connection::receive(): failed to realloc() data buffer";
+        }
+        strcpy(data + total, buffer);
+        total += length;
+    }
+    memset(buffer, 0x00, RECV_BUFFER_SIZE);
+    return(total);
 }
 
 void Connection::terminate() {

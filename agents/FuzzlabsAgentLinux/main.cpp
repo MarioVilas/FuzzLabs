@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
 
     try {
         listener(port, max_conn);
-    } catch (char *ex) {
+    } catch (char const* ex) {
         syslog(LOG_ERR, "%s", ex);
     }
     
