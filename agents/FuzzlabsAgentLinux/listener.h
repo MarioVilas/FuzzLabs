@@ -19,14 +19,6 @@
 
 #define AGENT_MAX_CONN          10
 
-// The message structure should be as simple as:
-// {"command": "<command>", "data": "<data>"}
-
-typedef struct {
-    char *command;
-    cJSON *j_data;
-} Message;
-
 void listener(unsigned int port, unsigned int max_conn);
 
 #endif	/* LISTENER_H */

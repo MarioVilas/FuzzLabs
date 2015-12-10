@@ -18,14 +18,17 @@ int Connection::transmit(char *data, unsigned int len) {
     return send(sock, data, len, 0);
 }
 
-size_t Connection::receive(char *data) {
+// THIS ISN'T WORKING THE WAY I WANTED. LOL
+// SHOULD READ UNTIL NEWLINE
+
+char *Connection::receive(char *data) {
     size_t total = 0;
     size_t length = 0;
     char buffer[RECV_BUFFER_SIZE];
     
     while (true) {
         memset(buffer, 0x00, RECV_BUFFER_SIZE);
-        length = recv(sock, buffer, RECV_BUFFER_SIZE - 1, 0);
+        length = recv(sock, buffer, RECV_BUFFER_SIZE - 1, MSG_DONTWAIT);
         if (length == -1 || length == 0) break;
         if (total + length > RECV_MAX_MSG_SIZE * 1048576) {
             if (data != NULL) free(data);
@@ -38,8 +41,9 @@ size_t Connection::receive(char *data) {
         strcpy(data + total, buffer);
         total += length;
     }
+
     memset(buffer, 0x00, RECV_BUFFER_SIZE);
-    return(total);
+    return(data);
 }
 
 void Connection::terminate() {

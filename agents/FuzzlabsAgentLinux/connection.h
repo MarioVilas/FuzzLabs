@@ -18,7 +18,7 @@
 #ifndef CONNECTION_H
 #define	CONNECTION_H
 
-#define RECV_BUFFER_SIZE    4096    // In KB
+#define RECV_BUFFER_SIZE    1024    // In KB
 #define RECV_MAX_MSG_SIZE   4       // In MB
 
 class Connection {
@@ -32,7 +32,7 @@ public:
     void terminate();
     char *address();
     int transmit(char *data, unsigned int len);
-    size_t receive(char *data);
+    char *receive(char *data);
 };
 
 #endif	/* CONNECTION_H */

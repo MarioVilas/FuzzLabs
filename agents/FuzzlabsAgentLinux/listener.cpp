@@ -5,42 +5,6 @@
 //
 // ----------------------------------------------------------------------------
 
-Message *get_command(char *data) {
-    cJSON *json = cJSON_Parse(data);
-    if (json == NULL) return(NULL);
-    cJSON *command = cJSON_GetObjectItem(json, "command");
-    if (command == NULL) {
-        free(json);
-        return(NULL);
-    }
-    if (command->type != cJSON_String) {
-        free(json);
-        return(NULL);
-    }
-    
-    Message *msg = (Message *)malloc(sizeof(Message));
-    msg->command = command->valuestring;
-    msg->j_data = json;
-    
-    return(msg);
-}
-
-// ----------------------------------------------------------------------------
-//
-// ----------------------------------------------------------------------------
-
-char *get_data(cJSON *data) {
-    if (data == NULL) return(NULL);
-    cJSON *j_data = cJSON_GetObjectItem(data, "data");
-    if (j_data == NULL) return(NULL);
-    if (j_data->type != cJSON_String) return(NULL);
-    return(j_data->valuestring);
-}
-
-// ----------------------------------------------------------------------------
-//
-// ----------------------------------------------------------------------------
-
 static void *start_monitor(void *m) {
     Monitor *monitor = (Monitor *)m;
     monitor->start();
@@ -93,7 +57,7 @@ int handle_command_ping(Connection *conn) {
 //
 // ----------------------------------------------------------------------------
 
-int handle_command_status(Connection *conn, Monitor *monitor, Message *msg) {
+int handle_command_status(Connection *conn, Monitor *monitor) {
     if (monitor == NULL || monitor->isRunning() == 0) {
         conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
         return(0);
@@ -135,18 +99,17 @@ int handle_command_status(Connection *conn, Monitor *monitor, Message *msg) {
 //
 // ----------------------------------------------------------------------------
 
-int handle_command_start(Connection *conn, Monitor *monitor, Message *msg) {
+int handle_command_start(Connection *conn, Monitor *monitor, char *data) {
     pthread_t tid;
-    char *cmd_line = (char *)get_data(msg->j_data);
     
-    if (cmd_line == NULL) {
-        syslog(LOG_ERR, "[%s]: program not specified in data", 
+    if (data == NULL) {
+        syslog(LOG_ERR, "[%s]: target not specified in data", 
                 conn->address());
         conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
         return(0);
     }
     
-    if (monitor->setTarget(cmd_line)) {
+    if (monitor->setTarget(data)) {
         syslog(LOG_ERR, "[%s]: monitor failed to process command line", 
                 conn->address());
         conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
@@ -168,26 +131,25 @@ int handle_command_start(Connection *conn, Monitor *monitor, Message *msg) {
 // ----------------------------------------------------------------------------
 
 void process_command(Connection *conn, Monitor *monitor, char *data) {
-    Message *message = NULL;
-    if (data == NULL) return;
-    message = get_command(data);
-    if (message == NULL) return;
-
-    syslog(LOG_INFO, "command received from %s: %s", conn->address(),
-                message->command);
+    cJSON *json = cJSON_Parse(data);
+    if (json == NULL) return;
+    char *cmd = cJSON_GetObjectItem(json, "command")->valuestring;
+    if (cmd == NULL) return;
     
-    if (!strcmp(message->command, "ping")) {
+    syslog(LOG_INFO, "command received from %s: %s", conn->address(), cmd);
+    
+    if (!strcmp(cmd, "ping")) {
         handle_command_ping(conn);
-    } else if (!strcmp(message->command, "kill")) {
+    } else if (!strcmp(cmd, "kill")) {
         handle_command_kill(conn, monitor);
-    } else if (!strcmp(message->command, "start")) {
-        handle_command_start(conn, monitor, message);
-    } else if (!strcmp(message->command, "status")) {
-        handle_command_status(conn, monitor, message);
+    } else if (!strcmp(cmd, "start")) {
+        handle_command_start(conn, monitor, 
+                cJSON_GetObjectItem(json, "data")->valuestring);
+    } else if (!strcmp(cmd, "status")) {
+        handle_command_status(conn, monitor);
     }
     
-    if (message->j_data != NULL) cJSON_Delete(message->j_data);
-    free(message);
+    if (json != NULL) cJSON_Delete(json);
 }
 
 // ----------------------------------------------------------------------------
@@ -204,13 +166,12 @@ static void *handle_connection(void *c) {
 
     while(r_len != 0) {
         try {
-            r_len = conn->receive(data);
-            if (r_len < 1) continue;
+            data = conn->receive(data);
+            if (r_len < 1 || data == NULL) continue;
             process_command(conn, monitor, data);
-            memset(data, 0, r_len);
             free(data);
             data = NULL;
-        } catch(char *ex) {
+        } catch(char const* ex) {
             syslog(LOG_ERR, "%s", ex);
             continue;
         }
