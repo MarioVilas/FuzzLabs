@@ -8,7 +8,8 @@ Monitor::Monitor() {
     p_status = new Status();
     pid = 0;
     p_args = NULL;
-    p_full = NULL;
+    p_orig_cmdline = NULL;
+    p_full_cmdline = NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -89,19 +90,27 @@ char **Monitor::parseArgs(char *str) {
 // ----------------------------------------------------------------------------
 
 int Monitor::setTarget(char *cmd_line) {
+    if (p_orig_cmdline != NULL) free(p_orig_cmdline);
+    if (p_full_cmdline != NULL) free(p_full_cmdline);
     if (p_args != NULL) free(p_args);
-    p_full = NULL;
-    
-    p_args = Monitor::parseArgs((char *)cmd_line);
-    if (p_args == NULL) return(1);
-    
-    if (p_args != NULL && p_args[0] != NULL) {
-        p_full = (char *)malloc(strlen((char *)p_args[0]) + 1);
-        memset(p_full, 0x00, strlen((char *)p_args[0]) + 1);
-        strcpy(p_full, p_args[0]);
-        p_args[0] = getCommandName(p_args[0]);
+    p_full_cmdline = NULL;
+
+    p_orig_cmdline = (char *)malloc(strlen(cmd_line));
+    strcpy(p_orig_cmdline, cmd_line);
+    p_full_cmdline = (char *)malloc(strlen(cmd_line));
+    strcpy(p_full_cmdline, cmd_line);
+
+    unsigned int i = 0;
+    for (i = 0; p_full_cmdline[i] != 0x00; i++) {
+        if (p_full_cmdline[i] == 0x20) p_full_cmdline[i] = 0x00;
     }
-    if (p_args[0] == NULL) return(1);
+    
+    p_args = Monitor::parseArgs((char *)p_orig_cmdline);
+    if (p_args == NULL) {
+        if (p_orig_cmdline != NULL) free(p_orig_cmdline);
+        return(1);
+    }
+    
     return(0);
 }
 
@@ -175,7 +184,8 @@ int Monitor::isRunning() {
 }
 
 // ----------------------------------------------------------------------------
-//
+// TODO: needs refactoring to ensure the target process is really up and
+//       running before telling the agent that the target is running.
 // ----------------------------------------------------------------------------
 
 int Monitor::start() {
@@ -183,27 +193,8 @@ int Monitor::start() {
     int status = 0;
     pid_t child = 0;
 
-    // XXX HORRIBLE HACK OF DEATH
-    if (p_args[0] != NULL && p_args[0][0] == 0) {
-        free(p_args[0]);
-        p_args[0] = p_full;
-    }
-
     p_status->reset();
-    syslog(LOG_INFO, "starting process: %s (%s)", p_full, p_args[0]);
-
-    // Look for a live process first
-    char cmdline[256];
-    int x = 0;
-    int y = 0;
-    memset(cmdline, 0, sizeof(cmdline));
-    strncpy(cmdline, p_args[0], sizeof(cmdline) - 1);
-    while (p_args[x] != NULL) {
-        y += strlen( & cmdline[y] ) + 1;
-        cmdline[y] = 0;
-        strncpy(&cmdline[y], p_args[x], sizeof(cmdline) - y - 1);
-        x++;
-    }
+    syslog(LOG_INFO, "starting process: %s", p_args[0]);
 
     do_attach = false;
     DIR *proc = opendir("/proc");
@@ -224,7 +215,7 @@ int Monitor::start() {
                     memset(tmpbuf, 0, sizeof(tmpbuf));
                     fread(tmpbuf, 1, sizeof(tmpbuf) - 1, file);
                     fclose(file);
-                    if (strcmp(tmpbuf, (char *) cmdline) == 0) {
+                    if (strncmp(tmpbuf, (char *) p_full_cmdline, 255) == 0) {
                         syslog(LOG_INFO, "found live process already, PID: %d", cur_pid);
                         child = cur_pid;
                         do_attach = true;
@@ -246,16 +237,16 @@ int Monitor::start() {
     // or we didn't (then we fork and execute, to get a child process)
     if (child == 0) child = fork();
     if (child == 0) {
-        if (p_full != NULL && p_args != NULL && p_args[0] != NULL) {
+        if (p_args != NULL && p_args[0] != NULL) {
             ptrace(PTRACE_TRACEME, 0, NULL, NULL);
             p_status->setState(P_RUNNING);
-            execv(p_full, p_args);
+            execv(p_args[0], p_args);
             p_status->setPid(-1);
             p_status->setState(P_ERROR);
-            syslog(LOG_ERR, "failed to start process: %d", errno);
         } else {
             p_status->setPid(-1);
             p_status->setState(P_ERROR);
+            syslog(LOG_ERR, "failed to start process: %d", errno);
         }
     } else {
         pid = child;
@@ -264,7 +255,7 @@ int Monitor::start() {
                 syslog(LOG_ERR, "failed to attach to process: %d", errno);
                 p_status->setPid(-1);
                 p_status->setState(P_ERROR);
-                syslog(LOG_INFO, "monitor for %s stopped", p_full);
+                syslog(LOG_INFO, "monitor for %s stopped", p_args[0]);
                 return 0;
             }
         }
@@ -272,6 +263,7 @@ int Monitor::start() {
         wait(NULL);
         ptrace(PTRACE_CONT, child, NULL, NULL);
         syslog(LOG_INFO, "process started with pid: %d", child);
+        
         p_status->setPid(child);
         while(running) {
             wait(&status);
@@ -297,6 +289,6 @@ int Monitor::start() {
                 break;
             }
         }
-        syslog(LOG_INFO, "monitor for %s stopped", p_full);
+        syslog(LOG_INFO, "monitor for %s stopped", p_args[0]);
     }
 }

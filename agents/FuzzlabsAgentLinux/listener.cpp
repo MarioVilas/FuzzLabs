@@ -14,23 +14,6 @@ static void *start_monitor(void *m) {
 //
 // ----------------------------------------------------------------------------
 
-cJSON *createRegisterObject(char *reg_name, unsigned long long int value) {
-    char *reg_str = (char *)malloc(64);
-    memset(reg_str, 0x00, 64);    
-    sprintf(reg_str, "0x%X", value);
-    
-    cJSON *r_obj = cJSON_CreateObject();  
-    cJSON_AddStringToObject(r_obj, "register", reg_name);
-    cJSON_AddStringToObject(r_obj, "value", reg_str);
-    
-    free(reg_str);
-    return r_obj;
-}
-
-// ----------------------------------------------------------------------------
-//
-// ----------------------------------------------------------------------------
-
 int handle_command_kill(Connection *conn, Monitor *monitor) {
     if (monitor != NULL) {
         if (monitor->terminate()) {

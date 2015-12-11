@@ -32,7 +32,8 @@ private:
     bool do_attach;
     Status *p_status;
     char **p_args;
-    char *p_full;
+    char *p_full_cmdline;
+    char *p_orig_cmdline;
     
     char *getCommandName(char *str);
     char **parseArgs(char *str);
