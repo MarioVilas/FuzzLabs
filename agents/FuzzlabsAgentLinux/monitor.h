@@ -37,6 +37,7 @@ private:
     
     char *getCommandName(char *str);
     char **parseArgs(char *str);
+    int isProcessRunning();
 public:
     Monitor();
     ~Monitor();

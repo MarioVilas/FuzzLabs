@@ -184,6 +184,61 @@ int Monitor::isRunning() {
 }
 
 // ----------------------------------------------------------------------------
+//
+// ----------------------------------------------------------------------------
+
+int Monitor::isProcessRunning() {
+    pid_t child = 0;
+    do_attach = false;
+
+    DIR *proc = opendir("/proc");
+    if (proc == NULL) {
+        syslog(LOG_ERR, "failed to scan for live processes: %d", errno);
+        return 0;
+    }
+    
+    while (1) {
+        dirent *entry = readdir(proc);
+        if (entry == NULL) break;
+        pid_t cur_pid = atoi(entry->d_name);
+        if (cur_pid == 0) continue;
+        int i_tmp = strlen(entry->d_name) + 16;
+        
+        char *p_tmp = (char *)malloc(i_tmp);
+        if (p_tmp == NULL) {
+            syslog(LOG_ERR, "failed to allocate memory: %d", errno);
+            return(0);
+        }
+        memset(p_tmp, 0, i_tmp);
+        
+        snprintf(p_tmp, i_tmp - 1, "/proc/%s/cmdline", entry->d_name);
+        FILE *file = fopen(p_tmp, "r");
+        
+        if (file == NULL) {
+            syslog(LOG_ERR, "failed to open file: %s (%d)", p_tmp, errno);
+            free(p_tmp);
+            continue;
+        }
+        
+        char tmpbuf[256];
+        memset(tmpbuf, 0, sizeof(tmpbuf));
+        fread(tmpbuf, 1, sizeof(tmpbuf) - 1, file);
+        fclose(file);
+        if (strncmp(tmpbuf, (char *) p_full_cmdline, 255) == 0) {
+            syslog(LOG_INFO, "found live process already, PID: %d", cur_pid);
+            child = cur_pid;
+            do_attach = true;
+            free(p_tmp);
+            break;
+        }
+        free(p_tmp);
+    }
+    closedir(proc);
+
+    return child;
+}
+
+// ----------------------------------------------------------------------------
 // TODO: needs refactoring to ensure the target process is really up and
 //       running before telling the agent that the target is running.
 // ----------------------------------------------------------------------------
@@ -196,42 +251,7 @@ int Monitor::start() {
     p_status->reset();
     syslog(LOG_INFO, "starting process: %s", p_args[0]);
 
-    do_attach = false;
-    DIR *proc = opendir("/proc");
-    if (proc != NULL) {
-        while (1) {
-            dirent * entry = readdir(proc);
-            if (entry == NULL) break;
-            pid_t cur_pid = atoi(entry->d_name);
-            if (cur_pid == 0) continue;
-            int i_tmp = strlen(entry->d_name) + 16;
-            char *p_tmp = (char *) malloc(i_tmp);
-            if (p_tmp != NULL) {
-                p_tmp[0] = 0;
-                snprintf(p_tmp, i_tmp - 1, "/proc/%s/cmdline", entry->d_name);
-                FILE *file = fopen(p_tmp, "r");
-                if (file != NULL) {
-                    char tmpbuf[256];
-                    memset(tmpbuf, 0, sizeof(tmpbuf));
-                    fread(tmpbuf, 1, sizeof(tmpbuf) - 1, file);
-                    fclose(file);
-                    if (strncmp(tmpbuf, (char *) p_full_cmdline, 255) == 0) {
-                        syslog(LOG_INFO, "found live process already, PID: %d", cur_pid);
-                        child = cur_pid;
-                        do_attach = true;
-                        break;
-                    }
-                } else {
-                    syslog(LOG_ERR, "failed to open file: %s (%d)", p_tmp, errno);
-                }
-            } else {
-                syslog(LOG_ERR, "failed to allocate memory: %d", errno);
-            }
-        }
-        closedir(proc);
-    } else {
-        syslog(LOG_ERR, "failed to scan for live processes: %d", errno);
-    }
+    child = isProcessRunning();
 
     // At this point either we found the child process (no forking is needed)
     // or we didn't (then we fork and execute, to get a child process)
