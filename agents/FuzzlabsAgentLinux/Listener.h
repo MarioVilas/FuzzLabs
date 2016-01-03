@@ -1,10 +1,3 @@
-/* 
- * File:   listener.h
- * Author: keyman
- *
- * Created on 14 August 2015, 13:09
- */
-
 #ifndef LISTENER_H
 #define	LISTENER_H
 
@@ -14,7 +7,7 @@
 #include <pthread.h>
 #include <syslog.h>
 #include <string.h>
-#include "monitor.h"
+#include "Monitor.h"
 #include "cJSON.h"
 
 #define AGENT_MAX_CONN          10

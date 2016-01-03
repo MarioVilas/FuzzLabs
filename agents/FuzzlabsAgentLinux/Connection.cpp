@@ -1,4 +1,4 @@
-#include "connection.h"
+#include "Connection.h"
 
 Connection::Connection(int c_fd, struct sockaddr_in *c_sin) {
     sock = c_fd;

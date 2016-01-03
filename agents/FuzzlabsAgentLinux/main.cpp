@@ -1,12 +1,5 @@
-/* 
- * File:   main.cpp
- * Author: keyman
- *
- * Created on 14 August 2015, 11:35
- */
-
 #include "main.h"
-#include "listener.h"
+#include "Listener.h"
 
 using namespace std;
 

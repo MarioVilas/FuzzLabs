@@ -31,7 +31,10 @@
     "agent": {
         "address": "127.0.0.1",
         "port": 27000,
-        "command": "/home/x/vulnerable",
+        "targets": [
+            {"command": "/home/x/vulnerable-1"},
+            {"command": "/home/x/vulnerable-2"}
+        ],
         "conn_retry": 5,
         "conn_retry_delay": 60
     }

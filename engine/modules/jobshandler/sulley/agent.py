@@ -34,7 +34,7 @@ class agent():
         self.session_id       = session_id
         self.address          = None
         self.port             = None
-        self.command          = None
+        self.commands         = []
         self.conn_retry       = 5
         self.conn_retry_delay = 20
         self.database         = dh.DatabaseHandler(self.config, self.root)
@@ -53,11 +53,11 @@ class agent():
                                   "agent port is not set for job %s" %\
                                   self.session_id)
 
-            if "command" in settings:
-                self.command = settings["command"]
+            if "targets" in settings:
+                self.commands = settings["targets"]
             else:
                 self.database.log("error",
-                                  "agent command is not set for job %s" %\
+                                  "no target was set for job %s" %\
                                   self.session_id)
 
             if "conn_retry" in settings:
@@ -74,7 +74,7 @@ class agent():
                           (self.session_id,
                           self.address,
                           self.port,
-                          self.command))
+                          self.commands))
 
     # -----------------------------------------------------------------------------------
     #
@@ -100,8 +100,8 @@ class agent():
 
     def do_start(self):
         if self.sock == None: return False
-        if not self.command: return False
-        message = json.dumps({"command": "start", "data": self.command})
+        if not self.commands: return False
+        message = json.dumps({"command": "start", "data": self.commands})
         self.sock.send(message)
         data = self.check_response()
 

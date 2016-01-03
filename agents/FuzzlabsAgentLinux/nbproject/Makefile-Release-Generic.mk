@@ -35,12 +35,12 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 
 # Object Files
 OBJECTFILES= \
+	${OBJECTDIR}/Common.o \
+	${OBJECTDIR}/Connection.o \
+	${OBJECTDIR}/Listener.o \
+	${OBJECTDIR}/Monitor.o \
 	${OBJECTDIR}/cJSON.o \
-	${OBJECTDIR}/connection.o \
-	${OBJECTDIR}/listener.o \
-	${OBJECTDIR}/main.o \
-	${OBJECTDIR}/monitor.o \
-	${OBJECTDIR}/status.o
+	${OBJECTDIR}/main.o
 
 
 # C Compiler Flags
@@ -67,35 +67,35 @@ ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/fuzzlabsagentlinux: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
 	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/fuzzlabsagentlinux ${OBJECTFILES} ${LDLIBSOPTIONS} -lm -lpthread
 
+${OBJECTDIR}/Common.o: Common.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Common.o Common.cpp
+
+${OBJECTDIR}/Connection.o: Connection.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Connection.o Connection.cpp
+
+${OBJECTDIR}/Listener.o: Listener.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Listener.o Listener.cpp
+
+${OBJECTDIR}/Monitor.o: Monitor.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Monitor.o Monitor.cpp
+
 ${OBJECTDIR}/cJSON.o: cJSON.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/cJSON.o cJSON.c
 
-${OBJECTDIR}/connection.o: connection.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/connection.o connection.cpp
-
-${OBJECTDIR}/listener.o: listener.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/listener.o listener.cpp
-
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
-
-${OBJECTDIR}/monitor.o: monitor.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/monitor.o monitor.cpp
-
-${OBJECTDIR}/status.o: status.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/status.o status.cpp
 
 # Subprojects
 .build-subprojects:

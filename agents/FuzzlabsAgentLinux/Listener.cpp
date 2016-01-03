@@ -1,5 +1,5 @@
-#include "listener.h"
-#include "connection.h"
+#include "Listener.h"
+#include "Connection.h"
 
 // ----------------------------------------------------------------------------
 //
@@ -45,6 +45,16 @@ int handle_command_status(Connection *conn, Monitor *monitor) {
         conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
         return(0);
     }
+    
+    targets tl = monitor->getTargets();
+    if (tl->n_targets == 0) {
+        conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
+        return(0);        
+    }
+    
+    // TODO: return status
+    
+    /*
     Status *m_status = monitor->status();
     
     if (m_status->getPid() < 1 || 
@@ -70,11 +80,12 @@ int handle_command_status(Connection *conn, Monitor *monitor) {
     
     char *t_json = cJSON_Print(root);
     if (t_json != NULL) conn->transmit(t_json, strlen(t_json));
-    
+
     cJSON_Delete(root);
     free(signame);
     monitor->terminate();
     monitor->stop();
+    */
     return(1);
 }
 
@@ -82,7 +93,10 @@ int handle_command_status(Connection *conn, Monitor *monitor) {
 //
 // ----------------------------------------------------------------------------
 
-int handle_command_start(Connection *conn, Monitor *monitor, char *data) {
+int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
+    unsigned int i = 0;
+    unsigned int type = 0;
+    char *t_data;
     pthread_t tid;
     
     if (data == NULL) {
@@ -92,11 +106,27 @@ int handle_command_start(Connection *conn, Monitor *monitor, char *data) {
         return(0);
     }
     
-    if (monitor->setTarget(data)) {
-        syslog(LOG_ERR, "[%s]: monitor failed to process command line", 
-                conn->address());
-        conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
-        return(0);
+    for (i = 0 ; i < cJSON_GetArraySize(data) ; i++) {
+        cJSON *item = cJSON_GetArrayItem(data, i);
+        
+        char *command = cJSON_GetObjectItem(item, "command")->valuestring;
+        char *process = cJSON_GetObjectItem(item, "process")->valuestring;
+        
+        if (command != NULL) {
+            type = TYPE_COMMAND;
+            t_data = command;
+        } else if (process != NULL) {
+            type = TYPE_PROCESS;
+            t_data = process;
+        }
+        
+        if (monitor->addTarget(type, t_data)) {
+            syslog(LOG_ERR, "[%s]: monitor failed to process command line", 
+                    conn->address());
+            conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
+            return(0);
+        }
+        
     }
 
     if (pthread_create(&tid, NULL, &start_monitor, monitor) != 0) {
@@ -120,14 +150,14 @@ void process_command(Connection *conn, Monitor *monitor, char *data) {
     if (cmd == NULL) return;
     
     syslog(LOG_INFO, "command received from %s: %s", conn->address(), cmd);
-    
+
     if (!strcmp(cmd, "ping")) {
         handle_command_ping(conn);
     } else if (!strcmp(cmd, "kill")) {
         handle_command_kill(conn, monitor);
     } else if (!strcmp(cmd, "start")) {
         handle_command_start(conn, monitor, 
-                cJSON_GetObjectItem(json, "data")->valuestring);
+                cJSON_GetObjectItem(json, "data"));
     } else if (!strcmp(cmd, "status")) {
         handle_command_status(conn, monitor);
     }
