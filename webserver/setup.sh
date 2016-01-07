@@ -63,12 +63,12 @@ rm ${SELECTED_INSTALL_DIR}/etc/ssl/server.pass.key
 openssl req -new -key ${SELECTED_INSTALL_DIR}/etc/ssl/server.key -out ${SELECTED_INSTALL_DIR}/etc/ssl/server.csr
 openssl x509 -req -days 365 -in ${SELECTED_INSTALL_DIR}/etc/ssl/server.csr -signkey ${SELECTED_INSTALL_DIR}/etc/ssl/server.key -out ${SELECTED_INSTALL_DIR}/etc/ssl/server.crt
 
-cat "$(pwd)/etc/init.rc.collector.sh" | sed "s@{{{ENGINE_HOME}}}@$SELECTED_INSTALL_DIR@" > /etc/init.d/collector
+cat "$(pwd)/etc/init.rc.collector.sh" | sed "s@{{{WEBSERVER_HOME}}}@$SELECTED_INSTALL_DIR@" > /etc/init.d/collector
 if [[ $? -ne 0 ]] ; then
     echo "[e] Failed to setup init script for collector, exiting..."
     exit
 fi
-cat "$(pwd)/etc/init.rc.webserver.sh" | sed "s@{{{ENGINE_HOME}}}@$SELECTED_INSTALL_DIR@" > /etc/init.d/webserver
+cat "$(pwd)/etc/init.rc.webserver.sh" | sed "s@{{{WEBSERVER_HOME}}}@$SELECTED_INSTALL_DIR@" > /etc/init.d/webserver
 if [[ $? -ne 0 ]] ; then
     echo "[e] Failed to setup init script for web server, exiting..."
     exit

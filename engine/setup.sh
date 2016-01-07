@@ -62,7 +62,7 @@ if [[ $? -ne 0 ]] ; then
     exit
 fi
 
-ln -s /etc/init.d/engine /etc/rc2.d/S99engine.sh
+ln -s /etc/init.d/engine /etc/rc2.d/S97engine.sh
 if [[ $? -ne 0 ]] ; then
     echo "[e] Failed to setup init script, exiting..."
     exit
