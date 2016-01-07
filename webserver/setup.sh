@@ -8,7 +8,7 @@ if [[ $(/usr/bin/id -u) -ne 0 ]] ; then
     exit
 fi
 
-if [[ $(pwd | awk -F\/ '{ print $NF }') != "engine" ]] ; then
+if [[ $(pwd | awk -F\/ '{ print $NF }') != "webserver" ]] ; then
     echo "[e] Please execute setup.sh from the webserver directory, exiting..."
     exit
 fi
