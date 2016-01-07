@@ -35,7 +35,7 @@ pyserial>=2.5
 pysqlite>=1.0.1
 python-apt>=0.9.3
 python-bcrypt>=0.3.1
-python-daemon>=1.5.5
+python-daemon==1.5.5
 python-debian>=0.1.21
 requests>=0.12.1
 rsa>=3.2
