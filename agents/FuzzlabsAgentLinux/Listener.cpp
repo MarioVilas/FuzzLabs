@@ -40,6 +40,15 @@ int handle_command_ping(Connection *conn) {
 //
 // ----------------------------------------------------------------------------
 
+void handle_command_stop(Connection *conn, Monitor *monitor) {
+    handle_command_kill(conn, monitor);
+    monitor->stop();
+}
+
+// ----------------------------------------------------------------------------
+//
+// ----------------------------------------------------------------------------
+
 int handle_command_status(Connection *conn, Monitor *monitor) {
     if (monitor == NULL || monitor->isRunning() == 0) {
         conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
@@ -47,45 +56,33 @@ int handle_command_status(Connection *conn, Monitor *monitor) {
     }
     
     targets tl = monitor->getTargets();
-    if (tl->n_targets == 0) {
+    if (tl.n_targets == 0) {
         conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
         return(0);        
     }
+
+    unsigned int counter = 0;
     
-    // TODO: return status
-    
-    /*
-    Status *m_status = monitor->status();
-    
-    if (m_status->getPid() < 1 || 
-        m_status->getState() <= P_RUNNING) {
-        conn->transmit("{\"command\": \"status\", \"data\": \"OK\"}", 35);
-        return(0);
+    cJSON *data = cJSON_CreateObject();
+    cJSON_AddStringToObject(data, "command", "status");
+    for (counter = 0; counter < tl.n_targets; counter++) {
+        target *t = tl.target[counter];
+        cJSON *j_data = cJSON_CreateObject();
+        cJSON_AddNumberToObject(j_data, "running", t->is_running);
+        cJSON_AddNumberToObject(j_data, "state", t->state);
+        cJSON_AddNumberToObject(j_data, "target_type", t->t_type);
+        cJSON_AddNumberToObject(j_data, "process_id", t->pid);
+        cJSON_AddStringToObject(j_data, "command_line", t->t_target_cmdline);
+        cJSON_AddNumberToObject(j_data, "exit_code", t->exitcode);
+        cJSON_AddNumberToObject(j_data, "signal_number", t->signal);
+        if (t->sigstr != NULL) {
+            cJSON_AddStringToObject(j_data, "signal_string", t->sigstr);
+        }
+        cJSON_AddItemToObject(data, "data", j_data);
     }
-    
-    cJSON *j_data = cJSON_CreateObject();
-
-    cJSON_AddStringToObject(j_data, "status", "terminated");
-    cJSON_AddNumberToObject(j_data, "process_id", m_status->getPid());
-    cJSON_AddNumberToObject(j_data, "term_condition", m_status->getState());
-    cJSON_AddNumberToObject(j_data, "exit_code", m_status->getExitCode());
-    cJSON_AddNumberToObject(j_data, "signal_num", m_status->getSignalNum());
-    char *signame = (char *)malloc(256);
-    m_status->getSignalStr(signame, 256);
-    cJSON_AddStringToObject(j_data, "signal_str", signame);
-
-    cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "command", "status");
-    cJSON_AddItemToObject(root, "data", j_data);
-    
-    char *t_json = cJSON_Print(root);
+    char *t_json = cJSON_Print(data);
     if (t_json != NULL) conn->transmit(t_json, strlen(t_json));
-
-    cJSON_Delete(root);
-    free(signame);
-    monitor->terminate();
-    monitor->stop();
-    */
+    cJSON_Delete(data);   
     return(1);
 }
 
@@ -96,39 +93,47 @@ int handle_command_status(Connection *conn, Monitor *monitor) {
 int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
     unsigned int i = 0;
     unsigned int type = 0;
-    char *t_data;
+    char *t_data = NULL;
     pthread_t tid;
+    cJSON *object;
+    
+    const char *str_failed = "{\"command\": \"start\", \"data\": \"failed\"}";
     
     if (data == NULL) {
         syslog(LOG_ERR, "[%s]: target not specified in data", 
                 conn->address());
-        conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
+        conn->transmit(str_failed, 38);
         return(0);
     }
     
     for (i = 0 ; i < cJSON_GetArraySize(data) ; i++) {
         cJSON *item = cJSON_GetArrayItem(data, i);
         
-        char *command = cJSON_GetObjectItem(item, "command")->valuestring;
-        char *process = cJSON_GetObjectItem(item, "process")->valuestring;
-        
-        if (command != NULL) {
+        object = cJSON_GetObjectItem(item, "command");
+        if (object != NULL) {
             type = TYPE_COMMAND;
-            t_data = command;
-        } else if (process != NULL) {
+            t_data = object->valuestring;    
+        }
+        object = cJSON_GetObjectItem(item, "process");
+        if (t_data != NULL && object != NULL) {
             type = TYPE_PROCESS;
-            t_data = process;
+            t_data = object->valuestring;
         }
         
         if (monitor->addTarget(type, t_data)) {
             syslog(LOG_ERR, "[%s]: monitor failed to process command line", 
                     conn->address());
-            conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
+            conn->transmit(str_failed, 38);
             return(0);
         }
-        
     }
 
+    targets t = monitor->getTargets();
+    for (i = 0 ; i < t.n_targets; i++) {
+        syslog(LOG_INFO, "registered target #%d: %s", i, 
+                t.target[i]->t_target_cmdline);
+    }
+    
     if (pthread_create(&tid, NULL, &start_monitor, monitor) != 0) {
         syslog(LOG_ERR, "[%s]: monitor failed to start process", 
                 conn->address());
@@ -144,17 +149,22 @@ int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
 // ----------------------------------------------------------------------------
 
 void process_command(Connection *conn, Monitor *monitor, char *data) {
+    syslog(LOG_INFO, "[d] received: %s", data);
     cJSON *json = cJSON_Parse(data);
     if (json == NULL) return;
-    char *cmd = cJSON_GetObjectItem(json, "command")->valuestring;
+    cJSON *object = cJSON_GetObjectItem(json, "command");
+    if (object == NULL) return;
+    char *cmd = object->valuestring;
     if (cmd == NULL) return;
-    
+
     syslog(LOG_INFO, "command received from %s: %s", conn->address(), cmd);
 
     if (!strcmp(cmd, "ping")) {
         handle_command_ping(conn);
     } else if (!strcmp(cmd, "kill")) {
         handle_command_kill(conn, monitor);
+    } else if (!strcmp(cmd, "stop")) {
+        handle_command_stop(conn, monitor);
     } else if (!strcmp(cmd, "start")) {
         handle_command_start(conn, monitor, 
                 cJSON_GetObjectItem(json, "data"));

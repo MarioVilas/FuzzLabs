@@ -28,10 +28,11 @@ private:
     char *client_addr;
 public:
     Connection(int c_fd, struct sockaddr_in *c_sin);
+    ~Connection();
     int socket();
     void terminate();
     char *address();
-    int transmit(char *data, unsigned int len);
+    int transmit(const char *data, unsigned int len);
     char *receive(char *data);
 };
 

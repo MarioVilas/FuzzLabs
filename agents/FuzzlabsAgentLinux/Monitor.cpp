@@ -138,7 +138,7 @@ int Monitor::addTarget(unsigned int type, char *cmd_line) {
     
     if (all_targets.n_targets != 0) {
         for (counter = 0; counter < all_targets.n_targets; counter++) {
-            if (strcpy(all_targets.target[counter]->t_target_cmdline, 
+            if (strcmp(all_targets.target[counter]->t_target_cmdline, 
                     n_target->t_target_cmdline) == 0) {
                 freeTarget(n_target);
                 return(-1);
@@ -196,6 +196,12 @@ bool Monitor::terminate() {
 bool Monitor::startCommand(target *n_target) {
     int t_pid = 0;
     unsigned int rc = 0;
+    struct stat buf;
+
+    // TODO: check if executable file exists...
+    char **p_args = Common::parseArgs(n_target->t_target_cmdline);
+    if (stat(p_args[0], &buf) == -1) return false;
+    free(p_args);
     
     for (rc = 0; rc < RESTART_COUNTER; rc++) {
         t_pid = Common::doStartProcess(n_target);
@@ -230,7 +236,7 @@ bool Monitor::startCommand(target *n_target) {
 
 int Monitor::start() {
     running = 1;
-    siginfo_t *s_info;
+    siginfo_t s_info;
     unsigned int rc = 0;
     unsigned int counter = 0;
 
@@ -279,12 +285,12 @@ int Monitor::start() {
     }
 
     while(running) {
-        waitid(P_ALL, -1, s_info, WEXITED|WSTOPPED);
-        target *t = Common::getTargetByPid(all_targets, s_info->si_pid);
+        waitid(P_ALL, -1, &s_info, WEXITED|WSTOPPED);
+        target *t = Common::getTargetByPid(all_targets, s_info.si_pid);
         
-        switch(s_info->si_code) {
+        switch(s_info.si_code) {
             case CLD_DUMPED:
-                t->signal       = s_info->si_status;
+                t->signal       = s_info.si_status;
                 t->sigstr       = Common::getSignalStr(t->signal);
                 t->is_running   = false;
                 t->state        = STATE_ISSUE;
@@ -298,7 +304,7 @@ int Monitor::start() {
                 }
                 break;
             case CLD_EXITED:
-                t->exitcode = s_info->si_status;
+                t->exitcode = s_info.si_status;
                 t->signal   = 0;
                 t->sigstr   = NULL;
                 t->state    = STATE_EXITED;

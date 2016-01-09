@@ -15,21 +15,23 @@ bool Common::isNumber(char *value) {
 // ----------------------------------------------------------------------------
 
 unsigned int Common::readUntilEOF(char *file, char *buffer) {
-    if (file == NULL) return NULL;
+    if (file == NULL) return 0;
     unsigned int bytes = 0;
     int fd;
-    // TODO: read until EOF
+
     fd = open(file, O_RDONLY);
     if (fd == -1) return 0;
 
-    realloc(buffer, 1);
+    buffer = (char *)realloc(buffer, 1);
+    if (buffer == NULL) return 0;
     while (read(fd, buffer, 1) != 0) {
-        realloc(buffer, bytes + 1);
+        buffer = (char *)realloc(buffer, bytes + 1);
+        if (buffer == NULL) break;
         bytes++;
     }
     
-    if (bytes == 0) {
-        if (buffer != NULL) free(buffer);
+    if (bytes == 0 && buffer != NULL) {
+        free(buffer);
         buffer = NULL;
     }
     close(fd);

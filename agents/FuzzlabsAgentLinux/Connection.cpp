@@ -3,7 +3,17 @@
 Connection::Connection(int c_fd, struct sockaddr_in *c_sin) {
     sock = c_fd;
     sin = c_sin;
-    client_addr = (char *)inet_ntoa(sin->sin_addr);
+    client_addr = (char *)malloc(256);
+    memset(client_addr, 0x00, 256);
+    strncpy(client_addr,(char *)inet_ntoa(sin->sin_addr), 255);
+}
+
+// ----------------------------------------------------------------------------
+//
+// ----------------------------------------------------------------------------
+
+Connection::~Connection() {
+    if (client_addr != NULL) free(client_addr);
 }
 
 int Connection::socket() {
@@ -14,7 +24,7 @@ char *Connection::address() {
     return client_addr;
 }
 
-int Connection::transmit(char *data, unsigned int len) {
+int Connection::transmit(const char *data, unsigned int len) {
     return send(sock, data, len, 0);
 }
 
