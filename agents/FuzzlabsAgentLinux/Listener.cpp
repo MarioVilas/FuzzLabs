@@ -15,14 +15,16 @@ static void *start_monitor(void *m) {
 // ----------------------------------------------------------------------------
 
 int handle_command_kill(Connection *conn, Monitor *monitor) {
+    const char *str_success = "{\"command\": \"kill\", \"data\": \"success\"}";
+    const char *str_failed = "{\"command\": \"kill\", \"data\": \"failed\"}";
     if (monitor != NULL) {
         if (monitor->terminate()) {
-            conn->transmit("{\"command\": \"kill\", \"data\": \"success\"}", 38);
+            conn->transmit(str_success, 38);
         } else {
-            conn->transmit("{\"command\": \"kill\", \"data\": \"failed\"}", 37);
+            conn->transmit(str_failed, 37);
         }
     } else {
-        conn->transmit("{\"command\": \"kill\", \"data\": \"failed\"}", 37);
+        conn->transmit(str_failed, 37);
     }
     return(0);
 }
@@ -42,7 +44,6 @@ int handle_command_ping(Connection *conn) {
 
 void handle_command_stop(Connection *conn, Monitor *monitor) {
     handle_command_kill(conn, monitor);
-    monitor->stop();
 }
 
 // ----------------------------------------------------------------------------
@@ -98,6 +99,7 @@ int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
     cJSON *object;
     
     const char *str_failed = "{\"command\": \"start\", \"data\": \"failed\"}";
+    const char *str_success = "{\"command\": \"start\", \"data\": \"success\"}";
     
     if (data == NULL) {
         syslog(LOG_ERR, "[%s]: target not specified in data", 
@@ -137,10 +139,10 @@ int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
     if (pthread_create(&tid, NULL, &start_monitor, monitor) != 0) {
         syslog(LOG_ERR, "[%s]: monitor failed to start process", 
                 conn->address());
-        conn->transmit("{\"command\": \"start\", \"data\": \"failed\"}", 38);
+        conn->transmit(str_failed, 38);
         return(0);
     }
-    conn->transmit("{\"command\": \"start\", \"data\": \"success\"}", 39);
+    conn->transmit(str_success, 39);
     return(1);
 }
 
@@ -149,7 +151,6 @@ int handle_command_start(Connection *conn, Monitor *monitor, cJSON *data) {
 // ----------------------------------------------------------------------------
 
 void process_command(Connection *conn, Monitor *monitor, char *data) {
-    syslog(LOG_INFO, "[d] received: %s", data);
     cJSON *json = cJSON_Parse(data);
     if (json == NULL) return;
     cJSON *object = cJSON_GetObjectItem(json, "command");
@@ -180,19 +181,23 @@ void process_command(Connection *conn, Monitor *monitor, char *data) {
 // ----------------------------------------------------------------------------
 
 static void *handle_connection(void *c) {
-    size_t r_len = 1;
+    size_t r_len = 0;
     Monitor *monitor = new Monitor();
     Connection *conn = (Connection *)c;
     char *data = NULL;
     
     syslog(LOG_INFO, "accepted connection from engine: %s", conn->address());
 
-    while(r_len != 0) {
+    while(r_len >= 0) {
         try {
-            data = conn->receive(data);
-            if (r_len < 1 || data == NULL) continue;
+            data = (char *)malloc(RECV_BUFFER_SIZE);
+            r_len = conn->receive(data);
+            if (r_len <= 0 || data == NULL) {
+                if (data != NULL) free(data);
+                continue;
+            }
             process_command(conn, monitor, data);
-            free(data);
+            if (data != NULL) free(data);
             data = NULL;
         } catch(char const* ex) {
             syslog(LOG_ERR, "%s", ex);

@@ -28,6 +28,7 @@
 #define STATE_MONITORING        2
 #define STATE_ISSUE             3
 #define STATE_EXITED            4
+#define STATE_KILLED            5
 
 // ----------------------------------------------------------------------------
 //
@@ -77,6 +78,7 @@ public:
     static pid_t doStartProcess(target *n_target);
     static bool doAttachProcess(target *n_target);
     static target *getTargetByPid(targets all_targets, pid_t pid);
+    static bool removeTargetFromList(targets all_targets, pid_t pid);
 private:
     static unsigned int readUntilEOF(char *file, char *buffer);
 };

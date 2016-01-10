@@ -5,7 +5,11 @@
 // ----------------------------------------------------------------------------
 
 Monitor::Monitor() {
+    unsigned int counter = 0;
     all_targets.n_targets = 0;
+    for (counter = 0; counter < MAX_TARGET_PROCESSES; counter++) {
+        all_targets.target[counter] = NULL;
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -148,8 +152,18 @@ int Monitor::addTarget(unsigned int type, char *cmd_line) {
 
     // 3. Add target to the target list
     
-    all_targets.target[all_targets.n_targets] = n_target;
-    all_targets.n_targets++;
+    for (counter = 0; counter < MAX_TARGET_PROCESSES; counter++) {
+        if (all_targets.target[counter] == NULL) {
+            syslog(LOG_DEBUG, "registering target (%s) to slot #%d", 
+                    n_target->t_target_cmdline,
+                    counter);
+            all_targets.target[counter] = n_target;
+            all_targets.n_targets++;
+            break;
+        }
+    }
+    
+    // TODO: consider adding feedback if there was no free slot.
     
     return(0);
 }
@@ -182,10 +196,7 @@ bool Monitor::terminate() {
             }
             break;
         }
-        freeTarget(all_targets.target[counter]);
     }
-    
-    all_targets.n_targets = 0;
     return success;
 }
 
@@ -198,8 +209,11 @@ bool Monitor::startCommand(target *n_target) {
     unsigned int rc = 0;
     struct stat buf;
 
-    // TODO: check if executable file exists...
     char **p_args = Common::parseArgs(n_target->t_target_cmdline);
+    if (p_args == NULL) {
+        syslog(LOG_ERR, "failed to parse arguments at command start");
+        return false;
+    }
     if (stat(p_args[0], &buf) == -1) return false;
     free(p_args);
     
@@ -290,27 +304,40 @@ int Monitor::start() {
         
         switch(s_info.si_code) {
             case CLD_DUMPED:
+                syslog(LOG_INFO, "target crashed: %s", t->t_target_cmdline);
                 t->signal       = s_info.si_status;
                 t->sigstr       = Common::getSignalStr(t->signal);
                 t->is_running   = false;
                 t->state        = STATE_ISSUE;
                 t->exitcode     = 0;
                 break;
+            case CLD_EXITED:
+                syslog(LOG_INFO, "target exited: %s", t->t_target_cmdline);
+                t->exitcode     = s_info.si_status;
+                t->signal       = 0;
+                t->sigstr       = NULL;
+                t->is_running   = false;
+                t->state        = STATE_EXITED;
+                break;
+            // TODO: this keeps getting called forever once a process get
+            // killed. This causes lots of memory allocation 'cause of 
+            // getSignalStr. Have to track down why this is happening.
+            case CLD_KILLED:
+                syslog(LOG_INFO, "target has been killed: %s", 
+                        t->t_target_cmdline);
+                t->exitcode     = s_info.si_status;
+                t->signal       = 0;
+                t->sigstr       = Common::getSignalStr(t->signal);
+                t->is_running   = false;
+                t->state        = STATE_KILLED;
+                break;
             case CLD_STOPPED:
+            case CLD_TRAPPED:
                 if (t->detach) {
                     Common::detachProcess(t->pid);
                 } else {
                     ptrace(PTRACE_CONT, t->pid, NULL, NULL);
                 }
-                break;
-            case CLD_EXITED:
-                t->exitcode = s_info.si_status;
-                t->signal   = 0;
-                t->sigstr   = NULL;
-                t->state    = STATE_EXITED;
-                break;
-            default:
-                ptrace(PTRACE_CONT, t->pid, NULL, NULL);
                 break;
         }
     }

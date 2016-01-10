@@ -295,3 +295,21 @@ target *Common::getTargetByPid(targets all_targets, pid_t pid) {
     }
     return NULL;
 }
+
+// ----------------------------------------------------------------------------
+//
+// ----------------------------------------------------------------------------
+
+bool Common::removeTargetFromList(targets all_targets, pid_t pid) {
+    unsigned int counter = 0;
+    for (counter = 0; counter < all_targets.n_targets; counter++) {
+        if (all_targets.target[counter]->pid == pid) {
+            free(all_targets.target[counter]);
+            all_targets.target[counter] = NULL;
+            all_targets.n_targets--;
+            return true;
+            break;
+        }
+    }
+    return false;
+}

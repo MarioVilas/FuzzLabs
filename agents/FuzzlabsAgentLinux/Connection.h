@@ -33,7 +33,7 @@ public:
     void terminate();
     char *address();
     int transmit(const char *data, unsigned int len);
-    char *receive(char *data);
+    unsigned int receive(char *data);
 };
 
 #endif	/* CONNECTION_H */
