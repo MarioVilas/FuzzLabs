@@ -32,7 +32,7 @@
 
 class Monitor {  
 private:
-    int running;
+    bool running;
     bool do_attach;
     struct targets all_targets;
     

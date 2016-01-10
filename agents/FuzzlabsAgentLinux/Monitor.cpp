@@ -25,7 +25,7 @@ Monitor::~Monitor() {
 // ----------------------------------------------------------------------------
 
 void Monitor::stop() {
-    running = 0;
+    running = false;
 }
 
 // ----------------------------------------------------------------------------
@@ -249,7 +249,7 @@ bool Monitor::startCommand(target *n_target) {
 // ----------------------------------------------------------------------------
 
 int Monitor::start() {
-    running = 1;
+    running = true;
     siginfo_t s_info;
     unsigned int rc = 0;
     unsigned int counter = 0;
@@ -299,7 +299,10 @@ int Monitor::start() {
     }
 
     while(running) {
-        waitid(P_ALL, -1, &s_info, WEXITED|WSTOPPED);
+        if (waitid(P_ALL, -1, &s_info, WEXITED|WSTOPPED) != 0) {
+            running = false;
+            break;
+        }
         target *t = Common::getTargetByPid(all_targets, s_info.si_pid);
         
         switch(s_info.si_code) {
@@ -319,9 +322,6 @@ int Monitor::start() {
                 t->is_running   = false;
                 t->state        = STATE_EXITED;
                 break;
-            // TODO: this keeps getting called forever once a process get
-            // killed. This causes lots of memory allocation 'cause of 
-            // getSignalStr. Have to track down why this is happening.
             case CLD_KILLED:
                 syslog(LOG_INFO, "target has been killed: %s", 
                         t->t_target_cmdline);
@@ -340,6 +340,11 @@ int Monitor::start() {
                 }
                 break;
         }
+    }
+    
+    for (counter = 0; counter < all_targets.n_targets; counter++) {
+        if (all_targets.target[counter] != NULL)
+            freeTarget(all_targets.target[counter]);
     }
     
     syslog(LOG_INFO, "monitor stopped");
