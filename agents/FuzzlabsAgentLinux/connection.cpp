@@ -14,7 +14,7 @@ char *Connection::address() {
     return client_addr;
 }
 
-int Connection::transmit(char *data, unsigned int len) {
+int Connection::transmit(const char *data, unsigned int len) {
     return send(sock, data, len, 0);
 }
 

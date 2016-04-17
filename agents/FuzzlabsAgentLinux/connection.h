@@ -31,7 +31,7 @@ public:
     int socket();
     void terminate();
     char *address();
-    int transmit(char *data, unsigned int len);
+    int transmit(const char *data, unsigned int len);
     char *receive(char *data);
 };
 
